@@ -1,0 +1,34 @@
+#+TITLE: Sftp Logger Data - Generic
+#+SETUPFILE: ~/s3olmax/org/conf/setup.config
+#+FILETAGS: :candisolar:sftp:bhiwadi:
+
+The sftppush is a mini pipeline for =upload > uncompress > s3 archive=.
+
+# #+CAPTION: project
+# #+attr_html: :width 200px
+# [[file:images/helm-plus-metabase.png][file:./images/*.png]]
+
+* Prerequisites
+- Terraform ([[https://www.terraform.io/docs/index.html][https://www.terraform.io/docs/index.html]])
+- Packer ([[https://www.packer.io/docs][https://www.packer.io/docs]])
+
+* Quick Launch
+
+This project can be deployed in 3 independent steps:
+
+* Getting started
+
+This project requires Go to be installed. On OS X with Homebrew you can just run `brew install go`.
+
+Running it then should be as simple as:
+
+#+BEGIN_SRC 
+$ make
+$ ./bin/sftppush
+#+END_SRC
+
+* Testing
+
+#+BEGIN_SRC 
+make test
+#+END_SRC

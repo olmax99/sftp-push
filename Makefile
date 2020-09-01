@@ -5,6 +5,9 @@
 
 BIN_NAME=sftppush
 
+OSTYPE := linux
+HOSTTYPE := x86_64
+
 VERSION := $(shell grep "const Version " version/version.go | sed -E 's/.*"(.+)"$$/\1/')
 GIT_COMMIT=$(shell git rev-parse HEAD)
 GIT_DIRTY=$(shell test -n "`git status --porcelain`" && echo "+CHANGES" || true)
@@ -14,6 +17,8 @@ IMAGE_NAME := "olmax/sftppush"
 default: test
 
 help:
+	@cat LICENCE.md
+	@echo
 	@echo 'Management commands for sftppush:'
 	@echo
 	@echo 'Usage:'
@@ -30,7 +35,7 @@ help:
 build:
 	@echo "building ${BIN_NAME} ${VERSION}"
 	@echo "GOPATH=${GOPATH}"
-	go build -ldflags "-X github.com/olmax99/sftppush/version.GitCommit=${GIT_COMMIT}${GIT_DIRTY} -X github.com/olmax99/sftppush/version.BuildDate=${BUILD_DATE}" -o bin/${BIN_NAME}
+	go build -ldflags "-X github.com/olmax99/sftppush/version.GitCommit=${GIT_COMMIT}${GIT_DIRTY} -X github.com/olmax99/sftppush/version.BuildDate=${BUILD_DATE}" -o bin/${BIN_NAME}-${VERSION}-${OSTYPE}-${HOSTTYPE}
 
 get-deps:
 	dep ensure
