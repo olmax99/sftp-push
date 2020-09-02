@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	
+
 	"github.com/spf13/cobra"
 	// "github.com/fsnotify/fsnotify"
 )
@@ -24,7 +24,7 @@ var cmdWatch = &cobra.Command{
 	// 	return fmt.Errorf("invalid color specified: %s", args[0])
 	// },
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("I AM WATCHING !!")
+		fmt.Printf("I AM WATCHING: %v !! \n", Target)
 		// TODO Create a watcher for every target in target file
 		// watcher, err := fsnotify.NewWatcher()
 		// if err != nil {
@@ -61,20 +61,9 @@ var cmdWatch = &cobra.Command{
 	},
 }
 
-var cmdTarget = &cobra.Command{
-	Use:   "--target [path to directory]",
-	Short: "The target directory to watch",
-	Long: `Indicate at least one target path as a string. It must be the full path`,
-	Args: cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("TARGET: %v", Target)
-	},
-}
-
 func init() {
 	rootCmd.AddCommand(cmdWatch)
-	cmdWatch.AddCommand(cmdTarget)
-	cmdWatch.Flags().StringVarP(&Target, "--target", "-t", "", "Target directory to watch (required)")
-	rootCmd.MarkFlagRequired("--target")
+	// cmdWatch.AddCommand(cmdTarget)
+	cmdWatch.Flags().StringVarP(&Target, "target", "t", "", "Target directory to watch (required)")
+	cmdWatch.MarkFlagRequired("target")
 }
-
