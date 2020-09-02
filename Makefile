@@ -5,8 +5,7 @@
 
 BIN_NAME=sftppush
 
-OSTYPE := linux
-HOSTTYPE := x86_64
+OSTYPE := linux_amd64
 
 VERSION := $(shell grep "const Version " version/version.go | sed -E 's/.*"(.+)"$$/\1/')
 GIT_COMMIT=$(shell git rev-parse HEAD)
@@ -35,7 +34,7 @@ help:
 build:
 	@echo "building ${BIN_NAME} ${VERSION}"
 	@echo "GOPATH=${GOPATH}"
-	go build -ldflags "-X github.com/olmax99/sftppush/version.GitCommit=${GIT_COMMIT}${GIT_DIRTY} -X github.com/olmax99/sftppush/version.BuildDate=${BUILD_DATE}" -o bin/${BIN_NAME}-${VERSION}-${OSTYPE}-${HOSTTYPE}
+	go build -ldflags "-X github.com/olmax99/sftppush/version.GitCommit=${GIT_COMMIT}${GIT_DIRTY} -X github.com/olmax99/sftppush/version.BuildDate=${BUILD_DATE}" -o bin/${BIN_NAME}-${VERSION}-${OSTYPE}
 
 get-deps:
 	dep ensure
