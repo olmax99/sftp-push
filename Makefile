@@ -32,16 +32,19 @@ help:
 	@echo
 
 build:
-	@echo "building ${BIN_NAME} ${VERSION}"
+	@echo "building ${BIN_NAME}-${VERSION}-${OSTYPE}"
 	@echo "GOPATH=${GOPATH}"
+        # -X write changes to variable at build time: update GitCommit, update BuildDate
 	go build -ldflags "-X github.com/olmax99/sftppush/version.GitCommit=${GIT_COMMIT}${GIT_DIRTY} -X github.com/olmax99/sftppush/version.BuildDate=${BUILD_DATE}" -o bin/${BIN_NAME}-${VERSION}-${OSTYPE}
 
 get-deps:
 	dep ensure
 
 build-alpine:
-	@echo "building ${BIN_NAME} ${VERSION}"
+	@echo "building ${BIN_NAME} ${VERSION} for Docker Alpine"
 	@echo "GOPATH=${GOPATH}"
+        # -w reduce binary size: turn off DWARF debugging information
+        # -linkmode external -extldflags "-static": CGo compile options details at cmd/cgo/doc.go
 	go build -ldflags '-w -linkmode external -extldflags "-static" -X github.com/olmax99/sftppush/version.GitCommit=${GIT_COMMIT}${GIT_DIRTY} -X github.com/olmax99/sftppush/version.BuildDate=${BUILD_DATE}' -o bin/${BIN_NAME}
 
 package:
