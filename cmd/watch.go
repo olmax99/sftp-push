@@ -14,8 +14,8 @@ import (
 var Target string
 
 type EventInfo struct {
-	// event string
-	Meta map[string]interface{} `json:"meta"`
+	Event map[string]string      `json:"event"`
+	Meta  map[string]interface{} `json:"meta"`
 }
 
 func getEventPath(target string) (eventpath string) {
@@ -28,6 +28,38 @@ func getEventPath(target string) (eventpath string) {
 	}
 	eventpath = path.Join(pwd, target)
 	return
+}
+
+// TODO consider channel
+func eventSrc(e fsnotify.Event) func() []EventInfo {
+	pwd, err := os.Getwd()
+	if err != nil {
+		log.Fatal(err)
+	}
+	ep := path.Join(pwd, e.Name)
+	return func() (einfo []EventInfo) {
+		// p = ep
+		fi, err := os.Stat(ep)
+		if err != nil {
+			log.Fatal(err)
+			//return err
+		}
+		emeta := map[string]interface{}{
+			"name":    fi.Name(),
+			"size":    fi.Size(),
+			"mode":    fi.Mode(),
+			"modTime": fi.ModTime(),
+		}
+		edata := map[string]string{
+			"location": e.Name,
+			"op":       e.Op.String(),
+		}
+		// log.Printf("emeta: %v\n edata: %v\n", emeta, edata)
+
+		einfo = []EventInfo{}
+		einfo = append(einfo, EventInfo{Event: edata, Meta: emeta})
+		return
+	}
 }
 
 func activateDirWatcher(targetDir string) {
@@ -47,27 +79,12 @@ func activateDirWatcher(targetDir string) {
 					return
 				}
 				// all events are caught by default
-				log.Println("event:", event)
+				log.Printf("event: %v, eventT: %T", event, event)
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					eventpath := getEventPath(event.Name)
-					fi, err := os.Stat(eventpath)
-					if err != nil {
-						fmt.Println(err)
-						return
-					}
-					log.Printf("modified file in path: %s, %TT", eventpath, eventpath)
-					emeta := map[string]interface{}{
-						"name":    fi.Name(),
-						"size":    fi.Size(),
-						"mode":    fi.Mode(),
-						"modTime": fi.ModTime(),
-					}
+					esrc := eventSrc(event)
 
-					einfo := []EventInfo{}
-					einfo = append(einfo, EventInfo{Meta: emeta})
-
-					einfol, _ := json.Marshal(einfo)
-					fmt.Println(string(einfol))
+					einfo, _ := json.Marshal(esrc())
+					fmt.Printf("einfol: %v, eiT: %T", string(einfo), esrc())
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
