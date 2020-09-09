@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/cobra"
@@ -14,8 +15,20 @@ import (
 var Target string
 
 type EventInfo struct {
-	Event map[string]string      `json:"event"`
-	Meta  map[string]interface{} `json:"meta"`
+	Event Event `json:"event"`
+	Meta  Meta  `json:"meta"`
+}
+
+type Event struct {
+	Location string `json:"location"`
+	Op       string `json:"op"`
+}
+
+type Meta struct {
+	ModTime time.Time   `json:"modTime"`
+	Mode    os.FileMode `json:"mode"`
+	Name    string      `json:"name"`
+	Size    int64       `json:"size"`
 }
 
 func getEventPath(target string) (eventpath string) {
@@ -44,20 +57,19 @@ func eventSrc(e fsnotify.Event) func() []EventInfo {
 			log.Fatal(err)
 			//return err
 		}
-		emeta := map[string]interface{}{
-			"name":    fi.Name(),
-			"size":    fi.Size(),
-			"mode":    fi.Mode(),
-			"modTime": fi.ModTime(),
+		ein := EventInfo{
+			Event{
+				Location: ep,
+				Op:       e.Op.String(),
+			},
+			Meta{
+				ModTime: fi.ModTime(),
+				Mode:    fi.Mode(),
+				Name:    fi.Name(),
+				Size:    fi.Size(),
+			},
 		}
-		edata := map[string]string{
-			"location": e.Name,
-			"op":       e.Op.String(),
-		}
-		// log.Printf("emeta: %v\n edata: %v\n", emeta, edata)
-
-		einfo = []EventInfo{}
-		einfo = append(einfo, EventInfo{Event: edata, Meta: emeta})
+		einfo = append(einfo, ein)
 		return
 	}
 }
