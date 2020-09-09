@@ -37,7 +37,7 @@ func Execute() {
 // This is just as a test
 // TODO integrate with viper
 func initConfig() {
-	fmt.Println(".. running inside initConfig \n")
+	fmt.Println(".. running inside initConfig")
 	// if cfgFile != "" {
 	// 	// Use config file from the flag.
 	// 	viper.SetConfigFile(cfgFile)
@@ -62,8 +62,7 @@ func initConfig() {
 
 func init() {
 	// This is always triggered before rootCmd is executed
-	fmt.Println(".. start rootCmd init() \n")
-
+	fmt.Println(".. start rootCmd init()")
 	// This is only triggered when 'Run: func(..)' is active in rootCmd
 	// TODO Should read Viper config/config.go?
 	cobra.OnInitialize(initConfig)

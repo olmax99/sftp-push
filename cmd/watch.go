@@ -43,21 +43,21 @@ func getEventPath(target string) (eventpath string) {
 	return
 }
 
-// TODO consider channel
-func eventSrc(e fsnotify.Event) func() []EventInfo {
-	pwd, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
+func EventSrc(e fsnotify.Event) func() []EventInfo {
+	ep := e.Name
+	if !path.IsAbs(e.Name) {
+		pwd, err := os.Getwd()
+		if err != nil {
+			log.Fatal(err)
+		}
+		ep = path.Join(pwd, e.Name)
 	}
-	ep := path.Join(pwd, e.Name)
 	return func() (einfo []EventInfo) {
-		// p = ep
 		fi, err := os.Stat(ep)
 		if err != nil {
 			log.Fatal(err)
-			//return err
 		}
-		ein := EventInfo{
+		ei := EventInfo{
 			Event{
 				Location: ep,
 				Op:       e.Op.String(),
@@ -69,7 +69,7 @@ func eventSrc(e fsnotify.Event) func() []EventInfo {
 				Size:    fi.Size(),
 			},
 		}
-		einfo = append(einfo, ein)
+		einfo = append(einfo, ei)
 		return
 	}
 }
@@ -93,8 +93,9 @@ func activateDirWatcher(targetDir string) {
 				// all events are caught by default
 				log.Printf("event: %v, eventT: %T", event, event)
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					esrc := eventSrc(event)
+					esrc := EventSrc(event)
 
+					// Just for local testing
 					einfo, _ := json.Marshal(esrc())
 					fmt.Printf("einfol: %v, eiT: %T", string(einfo), esrc())
 				}
