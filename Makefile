@@ -32,7 +32,7 @@ build:
 	go build -ldflags "-X github.com/olmax99/sftppush/version.GitCommit=${GIT_COMMIT}${GIT_DIRTY} -X github.com/olmax99/sftppush/version.BuildDate=${BUILD_DATE}" -o bin/${BIN_NAME}-${VERSION}-${OSTYPE}
 
 get-deps:
-	dep ensure
+	go build
 
 build-alpine:
 	@echo "building ${BIN_NAME} ${VERSION} for Docker Alpine"
