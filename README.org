@@ -2,33 +2,59 @@
 #+SETUPFILE: ~/s3olmax/org/conf/setup.config
 #+FILETAGS: :candisolar:sftp:bhiwadi:
 
-The sftppush is a mini pipeline for =upload > uncompress > s3 archive=.
+[[https://travis-ci.com/olmax99/sftppush.svg?branch=master][https://travis-ci.com/olmax99/sftppush.svg?branch=master]]
 
+The sftppush is a mini pipeline for =upload > decompress > s3 archive=.
+
+Initially, it was intended to replace i.e. low-compute serverless functions that
+would simply push files from the Sftp server into an S3 Bucket location. Instead
+of mounting an Sftp server's file system directly onto S3 FUSE this solution
+seems to be more fit for production use cases.
+
+* Prerequisites
+- Go 1.13.x
+
+* Design
 # #+CAPTION: project
 # #+attr_html: :width 200px
 # [[file:images/helm-plus-metabase.png][file:./images/*.png]]
 
-* Prerequisites
-- Terraform ([[https://www.terraform.io/docs/index.html][https://www.terraform.io/docs/index.html]])
-- Packer ([[https://www.packer.io/docs][https://www.packer.io/docs]])
+Most likely you want to run this project inside an Sftp server, that receives a
+constant stream of data files.
+
+The *sftppush* project is intended to run in a Linux (Ubuntu/Debian) VM. It
+captures WRITE_CLOSE events for files on the file system based on a single or
+multiple target directories.
+
+The =watch --target= flag can read a single directory as well as a configuration
+file containing multiple directories. In case of multiple directory targets
+their will be a separate =go watch process= spawned for each target, respectively. 
+
+It will decompress those files depending on their format and will push those
+further to an AWS S3 Bucket location. 
 
 * Quick Launch
+** 1. Configure a single S3 Bucket location
+...
 
-This project can be deployed in 3 independent steps:
-
-* Getting started
-
-This project requires Go to be installed. On OS X with Homebrew you can just run `brew install go`.
-
-Running it then should be as simple as:
-
+** 2. Run the event watcher on a single local directory 
+Running it should be as simple as:
 #+BEGIN_SRC 
-$ make
-$ ./bin/sftppush
+$ make build
+$ bin/sftppush-0.1.0-linux_amd64 help
+$ bin/sftppush-0.1.0-linux_amd64 watch --target local_test_dir/
 #+END_SRC
+
+Create a file in your =local_test_dir= and it should appear in your S3 Bucket location. 
+
+* Getting Started
+...
 
 * Testing
-
+Some tests require the OS file system. You can choose to run the tests inside a
+Docker container.
 #+BEGIN_SRC 
-make test
+$ [DOCKER=1] make test
+
 #+END_SRC
+
