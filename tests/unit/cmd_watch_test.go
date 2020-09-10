@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"testing"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/olmax99/sftppush/cmd"
@@ -38,7 +39,7 @@ func Test_EventSrc(t *testing.T) {
 			Op:       "WRITE",
 		},
 		cmd.Meta{
-			ModTime: modt.ModTime(),
+			ModTime: modt.ModTime().Truncate(time.Millisecond),
 			Mode:    420,
 			Name:    "c.txt",
 			Size:    6,
@@ -58,7 +59,7 @@ func Test_EventSrc(t *testing.T) {
 			Op:       "WRITE",
 		},
 		cmd.Meta{
-			ModTime: modt.ModTime(),
+			ModTime: modt.ModTime().Truncate(time.Millisecond),
 			Mode:    420,
 			Name:    "c.txt",
 			Size:    6,

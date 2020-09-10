@@ -13,23 +13,17 @@ GIT_DIRTY=$(shell test -n "`git status --porcelain`" && echo "+CHANGES" || true)
 BUILD_DATE=$(shell date '+%Y-%m-%d-%H:%M:%S')
 IMAGE_NAME := "olmax/sftppush"
 
+BOLD=$(shell tput bold)
+RED=$(shell tput setaf 1)
+GREEN=$(shell tput setaf 2)
+YELLOW=$(shell tput setaf 3)
+RESET=$(shell tput sgr0)
+
 default: test
 
-help:
-	@cat LICENCE.md
-	@echo
-	@echo 'Management commands for sftppush:'
-	@echo
-	@echo 'Usage:'
-	@echo '    make build           Compile the project.'
-	@echo '    make get-deps        runs dep ensure, mostly used for ci.'
-	@echo '    make build-alpine    Compile optimized for alpine linux.'
-	@echo '    make package         Build final docker image with just the go binary inside'
-	@echo '    make tag             Tag image created by package with latest, git commit and version'
-	@echo '    make test            Run tests on a compiled project.'
-	@echo '    make push            Push tagged images to registry'
-	@echo '    make clean           Clean the directory tree.'
-	@echo
+help: _info
+	$(info ${HELP_MESSAGE})
+	@exit 0
 
 build:
 	@echo "building ${BIN_NAME}-${VERSION}-${OSTYPE}"
@@ -67,5 +61,48 @@ clean:
 	@test ! -e bin/${BIN_NAME} || rm bin/${BIN_NAME}
 
 test:
+ifeq ($(DOCKER),1)
+	$(info [*] packaging local image build ...)
+	docker build --build-arg VERSION=${VERSION} --build-arg GIT_COMMIT=$(GIT_COMMIT) --target build-stage -t $(IMAGE_NAME):local .
+	$(info [*] Running tests using local Docker build $(IMAGE_NAME):local...)
+	docker run -it $(IMAGE_NAME):local /bin/bash -c 'make test'
+else
+	$(info [*] Running tests on local file system...)
 	go test -v ./...
+endif
+
+####
+# Helpers
+####
+
+_info:
+	@cat LICENCE.md
+	@echo
+	@echo 'Management commands for sftppush:'
+	@echo
+	@echo 'Usage:'
+	@echo '    make build           Compile the project.'
+	@echo '    make get-deps        runs dep ensure, mostly used for ci.'
+	@echo '    make build-alpine    Compile optimized for alpine linux.'
+	@echo '    make package         Build final docker image with just the go binary inside'
+	@echo '    make tag             Tag image created by package with latest, git commit and version'
+	@echo '    make test            Run tests on a compiled project.'
+	@echo '    make push            Push tagged images to registry'
+	@echo '    make clean           Clean the directory tree.'
+	@echo
+
+define HELP_MESSAGE
+	$(BOLD)Environment variables to be aware of or to hardcode depending on your use case:$(RESET)
+
+	DOCKER
+		Default: not_defined
+		Info: Environment variable to declare whether Docker should be used to build (great for C-deps)
+
+	$(GREEN)Common usage:$(RESET)
+
+	$(BOLD)...::: Run Go test manually using DOCKER :::...$(RESET)
+	$(GREEN)~$$$(RESET) DOCKER=1 make test
+
+endef
+
 

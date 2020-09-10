@@ -66,7 +66,7 @@ func EventSrc(e fsnotify.Event) func() []EventInfo {
 				Op:       e.Op.String(),
 			},
 			Meta{
-				ModTime: fi.ModTime(),
+				ModTime: fi.ModTime().Truncate(time.Millisecond),
 				Mode:    fi.Mode(),
 				Name:    fi.Name(),
 				Size:    fi.Size(),
