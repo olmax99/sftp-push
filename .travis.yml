@@ -10,7 +10,7 @@ branches:
   - /^ci-.*$/
 
 env:
-  - APP_DIR="$TRAVIS_BUILD_DIR/sftppush"
+  - APP_DIR="$TRAVIS_BUILD_DIR"
 
 before_install:
   - |
@@ -25,7 +25,6 @@ before_install:
 
     EOF
   - ls -al $TRAVIS_BUILD_DIR
-  - ls -al $APP_DIR
 
 install:
   - go get -v github.com/olmax99/sftppush
