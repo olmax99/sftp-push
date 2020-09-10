@@ -1,10 +1,10 @@
-#+TITLE: Sftp Logger Data - Generic
+#+TITLE: Sftppush Event Pipeline
 #+SETUPFILE: ~/s3olmax/org/conf/setup.config
 #+FILETAGS: :candisolar:sftp:bhiwadi:
 
 [[https://travis-ci.com/olmax99/sftppush.svg?branch=master][https://travis-ci.com/olmax99/sftppush.svg?branch=master]]
 
-The sftppush is a mini pipeline for =upload > decompress > s3 archive=.
+The *sftppush* is a mini pipeline for =upload > decompress > s3 archive=.
 
 Initially, it was intended to replace i.e. low-compute serverless functions that
 would simply push files from the Sftp server into an S3 Bucket location. Instead
@@ -57,4 +57,13 @@ Docker container.
 $ [DOCKER=1] make test
 
 #+END_SRC
+
+* General Instructions
+** 1. Missing WRITE_CLOSE event
+- WRITE_CLOSE events are not cross-platform, and currently only readily
+  accessible on Linux file systems. This restriction made the [[https://github.com/fsnotify/fsnotify][fsnotify]] creators
+  to keep the [[https://github.com/fsnotify/fsnotify/pull/313/commits/f8197a386f88a88067d4cea863694c73ab561c55][respective PR]] in pending state.
+- Note that this =sftppush= project is relying heavily on this feature.
+- One way of doing it is to fork the original [[https://github.com/fsnotify/fsnotify][fsnotify]], and accepting the
+  changes made on the [[https://github.com/fsnotify/fsnotify/pull/313][respective PR]]. 
 
