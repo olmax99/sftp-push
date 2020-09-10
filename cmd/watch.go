@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
 
@@ -53,7 +54,9 @@ func EventSrc(e fsnotify.Event) func() []EventInfo {
 		ep = path.Join(pwd, e.Name)
 	}
 	return func() (einfo []EventInfo) {
-		fi, err := os.Stat(ep)
+		// TODO Create ENV 'TESTING' and set to afero.NewMemMapFs()
+		var appFS = afero.NewOsFs()
+		fi, err := appFS.Stat(ep)
 		if err != nil {
 			log.Fatal(err)
 		}

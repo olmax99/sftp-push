@@ -2,6 +2,8 @@ package sftppush
 
 import (
 	"encoding/json"
+	"os"
+	"path"
 	"testing"
 
 	"github.com/fsnotify/fsnotify"
@@ -10,22 +12,49 @@ import (
 )
 
 func Test_EventSrc(t *testing.T) {
-	// Create Test file
+	// Create Test files
+	// TODO Will only work with ENV 'TESTING' set
+	// appfs := afero.NewMemMapFs()
 	appfs := afero.NewOsFs()
 	afero.WriteFile(appfs, "/tmp/c.txt", []byte("file c"), 0644)
+	pwd, _ := os.Getwd()
+	afero.WriteFile(appfs, path.Join(pwd, "c.txt"), []byte("file c"), 0644)
 
 	modt, _ := appfs.Stat("/tmp/c.txt")
 
-	// create INPUT
-	var fsne = fsnotify.Event{
+	// cleanup only guaranteed for /tmp/*.* files
+	defer appfs.Remove(path.Join(pwd, "c.txt"))
+
+	// create INPUT ABS PATH
+	var fabs = fsnotify.Event{
 		Name: "/tmp/c.txt",
 		Op:   2,
 	}
 
-	// create EXPECTED fsnotify.Event
-	var ei cmd.EventInfo = cmd.EventInfo{
+	// create EXPECTED ABS PATH fsnotify.Event
+	var eiabs cmd.EventInfo = cmd.EventInfo{
 		cmd.Event{
 			Location: "/tmp/c.txt",
+			Op:       "WRITE",
+		},
+		cmd.Meta{
+			ModTime: modt.ModTime(),
+			Mode:    420,
+			Name:    "c.txt",
+			Size:    6,
+		},
+	}
+
+	// create INPUT RELATIVE PATH
+	var frel = fsnotify.Event{
+		Name: path.Join(pwd, "c.txt"),
+		Op:   2,
+	}
+
+	// create EXPECTED RELATIVE PATH fsnotify.Event
+	var eirel cmd.EventInfo = cmd.EventInfo{
+		cmd.Event{
+			Location: path.Join(pwd, "c.txt"),
 			Op:       "WRITE",
 		},
 		cmd.Meta{
@@ -40,9 +69,11 @@ func Test_EventSrc(t *testing.T) {
 		in  fsnotify.Event
 		out cmd.EventInfo
 	}{
-		{fsne, ei},
+		{fabs, eiabs},
+		{frel, eirel},
 	}
-	t.Run("Test standard output", func(t *testing.T) {
+
+	t.Run("Test input abs and rel path", func(t *testing.T) {
 		for _, rr := range Results {
 			esrc := cmd.EventSrc(rr.in)
 			act := esrc()
