@@ -1,9 +1,36 @@
 language: go
 
 go:
-  - 1.8.x
+  - 1.13.x
   - master
 
+branches:
+  only:
+  - master
+  - /^ci-.*$/
+
+env:
+  - APP_DIR="$TRAVIS_BUILD_DIR/sftppush"
+
+before_install:
+  - |
+    sed 's/./x/' << EOF
+    Default Environment Variables:
+    ------------------------------
+    TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR
+
+    Custom Environment Variables:
+    -----------------------------
+    APP_DIR=$APP_DIR
+
+    EOF
+  - ls -al $TRAVIS_BUILD_DIR
+  - ls -al $APP_DIR
+
 install:
-  - go get -v github.com/Masterminds/glide 
+  - go get -v github.com/olmax99/sftppush
   - make get-deps
+
+# If a Makefile is present, the default action is 'make'
+# scripts:
+#   - make
