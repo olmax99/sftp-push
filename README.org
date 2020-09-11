@@ -2,7 +2,7 @@
 #+SETUPFILE: ~/s3olmax/org/conf/setup.config
 #+FILETAGS: :candisolar:sftp:bhiwadi:
 
-[[https://travis-ci.com/olmax99/sftppush.svg?branch=master][https://travis-ci.com/olmax99/sftppush.svg?branch=master]]
+[[https://github.com/olmax99/sftppush/workflows/go/badge.svg][https://github.com/olmax99/sftppush/workflows/go/badge.svg]]
 
 The *sftppush* is a mini pipeline for =upload > decompress > s3 archive=.
 
