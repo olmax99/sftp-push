@@ -34,6 +34,22 @@ type getWorkPath struct{}
 var getWP getCurrentWorkingPath
 
 type (
+	// encapsulates file event and the FsEventOperations interface
+	FsEvent struct {
+		event fsnotify.Event
+		ops   FsEventOperations
+	}
+
+	// Captures both the source path of a new file event and
+	// the respective file info of the target file object.
+	FsEventOperations interface {
+		EventSrc(path string) (string, error)
+		FsInfo(path string) (os.FileInfo, error)
+	}
+
+	// Implements the FsEventOperations interface
+	FsEventOps struct{}
+
 	EventInfo struct {
 		Event Event `json:"event"`
 		Meta  Meta  `json:"meta"`
@@ -70,28 +86,8 @@ func init() {
 	getWP = getWorkPath{}
 }
 
-// func getEventPath(target string) (eventpath string) {
-// 	if path.IsAbs(target) {
-// 		return target
-// 	}
-// 	// os.Getwd called through helper mock wrapper
-// 	pwd, err := getWP.Getwd()
-// 	if err != nil {
-// 		fmt.Println(err)
-// 	}
-// 	eventpath = path.Join(pwd, target)
-// 	return
-// }
-
-type FsEventOperations interface {
-	EventPath(path string) (string, error)
-	FsInfo(path string) (os.FileInfo, error)
-}
-
-type FsEventOps struct {
-}
-
-func (o *FsEventOps) EventPath(evPath string) (string, error) {
+// returns the absolute source path of the triggered file event
+func (o *FsEventOps) EventSrc(evPath string) (string, error) {
 	if path.IsAbs(evPath) {
 		return evPath, nil
 	}
@@ -102,18 +98,15 @@ func (o *FsEventOps) EventPath(evPath string) (string, error) {
 	return path.Join(pwd, evPath), nil
 }
 
-func (*FsEventOps) FsInfo(evPath string) (os.FileInfo, error) {
+// wrapper around os Stat call for retrieving file info
+func (o *FsEventOps) FsInfo(evPath string) (os.FileInfo, error) {
 	osFs := afero.NewOsFs()
 	return osFs.Stat(evPath)
 }
 
-type FsEvent struct {
-	event fsnotify.Event
-	ops   FsEventOperations
-}
-
+// returns the EventInfo object based on FsEvent interface operations
 func (e *FsEvent) info() (*EventInfo, error) {
-	path, err := e.ops.EventPath(e.event.Name)
+	path, err := e.ops.EventSrc(e.event.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +161,7 @@ func activateDirWatcher(targetDir string) {
 					if err != nil {
 						log.Printf("error marshaling event: %s", err)
 					}
-					fmt.Printf("einfol: %v, eiT: %T", string(einfo), ev)
+					fmt.Printf("einfo: %v, eiT: %T", string(einfo), ev)
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {

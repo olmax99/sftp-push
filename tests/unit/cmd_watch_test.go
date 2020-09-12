@@ -1,8 +1,6 @@
 package sftppush
 
 import (
-	"encoding/json"
-	"errors"
 	"os"
 	"path"
 	"testing"
@@ -85,71 +83,61 @@ func Test_EventSrc(t *testing.T) {
 
 	t.Run("Test input abs and rel path", func(t *testing.T) {
 		for _, rr := range Results {
-			esrc := cmd.EventSrc(rr.in)
-			act, _ := esrc()
+			eact := &cmd.FsEventOps{}
+			act, _ := eact.EventSrc(rr.in.Name)
 
-			a, _ := json.Marshal(act)
-			// t.Logf("ACTUAL: %v", string(a))
-
-			// ei needs to go into a slice
-			s := make([]cmd.EventInfo, 0)
-			s = append(s, rr.out)
-
-			e, _ := json.Marshal(s)
-			// t.Logf("EXPECTED: %v", string(e))
-
-			if act[0] != s[0] {
-				t.Errorf("eventSrc(%v) =>  %v, want %v", rr.in, string(e), string(a))
+			if act != rr.out.Event.Location {
+				t.Errorf("eventSrc(%s) =>  %s, want %s", rr.in.Name, act, rr.out.Event.Location)
 			}
 		}
 	})
 }
 
-func Test_EventSrcErrorPwdError(t *testing.T) {
-	pwd, _ := os.Getwd()
+// func Test_EventSrcErrorPwdError(t *testing.T) {
+// 	pwd, _ := os.Getwd()
 
-	// create INPUT RELATIVE PATH
-	var frel = fsnotify.Event{
-		Name: path.Join(pwd, "c.txt"),
-		Op:   2,
-	}
+// 	// create INPUT RELATIVE PATH
+// 	var frel = fsnotify.Event{
+// 		Name: path.Join(pwd, "c.txt"),
+// 		Op:   2,
+// 	}
 
-	// create EXPECTED RELATIVE PATH fsnotify.Event
-	var eirel cmd.EventInfo = cmd.EventInfo{
-		cmd.Event{
-			Location: path.Join(pwd, "c.txt"),
-			Op:       "WRITE",
-		},
-		cmd.Meta{
-			ModTime: modt.ModTime().Truncate(time.Millisecond),
-			Mode:    420,
-			Name:    "c.txt",
-			Size:    6,
-		},
-	}
+// 	// create EXPECTED RELATIVE PATH fsnotify.Event
+// 	var eirel cmd.EventInfo = cmd.EventInfo{
+// 		cmd.Event{
+// 			Location: path.Join(pwd, "c.txt"),
+// 			Op:       "WRITE",
+// 		},
+// 		cmd.Meta{
+// 			ModTime: modt.ModTime().Truncate(time.Millisecond),
+// 			Mode:    420,
+// 			Name:    "c.txt",
+// 			Size:    6,
+// 		},
+// 	}
 
-	var Results = []struct {
-		in  fsnotify.Event
-		out cmd.EventInfo
-	}{
-		{frel, eirel},
-	}
+// 	var Results = []struct {
+// 		in  fsnotify.Event
+// 		out cmd.EventInfo
+// 	}{
+// 		{frel, eirel},
+// 	}
 
-	t.Run("Test failing Getwd", func(t *testing.T) {
+// 	t.Run("Test failing Getwd", func(t *testing.T) {
 
-		getWP := getWorkPathMock{}
+// 		getWP := getWorkPathMock{}
 
-		getwdMock = func() (string, error) {
-			return "", errors.New("Getwd failed.")
-		}
+// 		getwdMock = func() (string, error) {
+// 			return "", errors.New("Getwd failed.")
+// 		}
 
-		for _, rr := range Results {
+// 		for _, rr := range Results {
 
-			esrc := cmd.EventSrc(rr.in)
-			_, err := esrc()
-			if err != nil {
-				t.Fatal(err)
-			}
-		}
-	})
-}
+// 			esrc := cmd.EventSrc(rr.in)
+// 			_, err := esrc()
+// 			if err != nil {
+// 				t.Fatal(err)
+// 			}
+// 		}
+// 	})
+// }
