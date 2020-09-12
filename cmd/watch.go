@@ -83,18 +83,41 @@ func init() {
 // 	return
 // }
 
+type FsEventOperations interface {
+	EventPath(path string) (string, error)
+	FsInfo(path string) (os.FileInfo, error)
+}
+
+type FsEventOps struct {
+}
+
+func (o *FsEventOps) EventPath(evPath string) (string, error) {
+	if path.IsAbs(evPath) {
+		return evPath, nil
+	}
+	pwd, err := os.Getwd()
+	if err != nil {
+		return "", errors.Wrapf(err, "getting cwd for relative path: %s", evPath)
+	}
+	return path.Join(pwd, evPath), nil
+}
+
+func (*FsEventOps) FsInfo(evPath string) (os.FileInfo, error) {
+	osFs := afero.NewOsFs()
+	return osFs.Stat(evPath)
+}
+
 type FsEvent struct {
-	event     fsnotify.Event
-	eventPath func(path string) (string, error)
-	fsInfo    func(path string) (os.FileInfo, error)
+	event fsnotify.Event
+	ops   FsEventOperations
 }
 
 func (e *FsEvent) info() (*EventInfo, error) {
-	path, err := e.eventPath(e.event.Name)
+	path, err := e.ops.EventPath(e.event.Name)
 	if err != nil {
 		return nil, err
 	}
-	fi, err := e.fsInfo(path)
+	fi, err := e.ops.FsInfo(path)
 	if err != nil {
 		return nil, err
 	}
@@ -133,20 +156,7 @@ func activateDirWatcher(targetDir string) {
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					fsEv := &FsEvent{
 						event: event,
-						eventPath: func(evPath string) (string, error) {
-							if path.IsAbs(evPath) {
-								return evPath, nil
-							}
-							pwd, err := os.Getwd()
-							if err != nil {
-								return "", errors.Wrapf(err, "getting cwd for relative path: %s", evPath)
-							}
-							return path.Join(pwd, evPath), nil
-						},
-						fsInfo: func(evPath string) (os.FileInfo, error) {
-							osFs := afero.NewOsFs()
-							return osFs.Stat(evPath)
-						},
+						ops:   &FsEventOps{},
 					}
 					ev, err := fsEv.info()
 					if err != nil {
