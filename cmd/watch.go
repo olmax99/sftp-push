@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/pkg/errors"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
@@ -83,46 +83,56 @@ func init() {
 // 	return
 // }
 
-// Parses the Event FileInfo and returns an EventInfo slice or error
-func EventSrc(e fsnotify.Event) func() ([]EventInfo, error) {
-	ep := e.Name
-	// nil by default
-	var eo error
-	ein := EventInfo{}
-	einfo := make([]EventInfo, 0)
-	if !path.IsAbs(e.Name) {
-		pwd, err := os.Getwd()
-		if err != nil {
-			// log.Fatal(err)
-			eo = errors.New("[EventSrc(event)] os.Getwd failed..")
-		}
-		ep = path.Join(pwd, e.Name)
+type FsEventOperations interface {
+	EventPath(path string) (string, error)
+	FsInfo(path string) (os.FileInfo, error)
+}
+
+type FsEventOps struct {
+}
+
+func (o *FsEventOps) EventPath(evPath string) (string, error) {
+	if path.IsAbs(evPath) {
+		return evPath, nil
 	}
-	return func() ([]EventInfo, error) {
-		if eo != nil {
-			return einfo, eo
-		}
-		// TODO Create ENV 'TESTING' and set to afero.NewMemMapFs()
-		var appFS = afero.NewOsFs()
-		fi, err := appFS.Stat(ep)
-		if err != nil {
-			return einfo, errors.New("[EventSrc(event)] os.Stat failed..")
-		}
-		ein = EventInfo{
-			Event{
-				Location: ep,
-				Op:       e.Op.String(),
-			},
-			Meta{
-				ModTime: fi.ModTime().Truncate(time.Millisecond),
-				Mode:    fi.Mode(),
-				Name:    fi.Name(),
-				Size:    fi.Size(),
-			},
-		}
-		einfo = append(einfo, ein)
-		return einfo, eo
+	pwd, err := os.Getwd()
+	if err != nil {
+		return "", errors.Wrapf(err, "getting cwd for relative path: %s", evPath)
 	}
+	return path.Join(pwd, evPath), nil
+}
+
+func (*FsEventOps) FsInfo(evPath string) (os.FileInfo, error) {
+	osFs := afero.NewOsFs()
+	return osFs.Stat(evPath)
+}
+
+type FsEvent struct {
+	event fsnotify.Event
+	ops   FsEventOperations
+}
+
+func (e *FsEvent) info() (*EventInfo, error) {
+	path, err := e.ops.EventPath(e.event.Name)
+	if err != nil {
+		return nil, err
+	}
+	fi, err := e.ops.FsInfo(path)
+	if err != nil {
+		return nil, err
+	}
+	return &EventInfo{
+		Event{
+			Location: path,
+			Op:       e.event.Op.String(),
+		},
+		Meta{
+			ModTime: fi.ModTime().Truncate(time.Millisecond),
+			Mode:    fi.Mode(),
+			Name:    fi.Name(),
+			Size:    fi.Size(),
+		},
+	}, nil
 }
 
 func activateDirWatcher(targetDir string) {
@@ -144,14 +154,20 @@ func activateDirWatcher(targetDir string) {
 				// all events are caught by default
 				log.Printf("event: %v, eventT: %T", event, event)
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					esrc := EventSrc(event)
-					ev, err := esrc()
+					fsEv := &FsEvent{
+						event: event,
+						ops:   &FsEventOps{},
+					}
+					ev, err := fsEv.info()
 					if err != nil {
-						log.Fatal(err)
+						log.Printf("error getting event info: %s", err)
+						return
 					}
 
-					// Just for local testing
-					einfo, _ := json.Marshal(ev)
+					einfo, err := json.Marshal(ev)
+					if err != nil {
+						log.Printf("error marshaling event: %s", err)
+					}
 					fmt.Printf("einfol: %v, eiT: %T", string(einfo), ev)
 				}
 			case err, ok := <-watcher.Errors:
