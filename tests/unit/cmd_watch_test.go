@@ -2,6 +2,7 @@ package sftppush
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path"
 	"testing"
@@ -11,6 +12,14 @@ import (
 	"github.com/olmax99/sftppush/cmd"
 	"github.com/spf13/afero"
 )
+
+var getwdMock func() (string, error)
+
+type getWorkPathMock struct{}
+
+func (p getWorkPathMock) Getwd() (string, error) {
+	return getwdMock()
+}
 
 func Test_EventSrc(t *testing.T) {
 	// Create Test files
@@ -77,7 +86,7 @@ func Test_EventSrc(t *testing.T) {
 	t.Run("Test input abs and rel path", func(t *testing.T) {
 		for _, rr := range Results {
 			esrc := cmd.EventSrc(rr.in)
-			act := esrc()
+			act, _ := esrc()
 
 			a, _ := json.Marshal(act)
 			// t.Logf("ACTUAL: %v", string(a))
@@ -91,6 +100,55 @@ func Test_EventSrc(t *testing.T) {
 
 			if act[0] != s[0] {
 				t.Errorf("eventSrc(%v) =>  %v, want %v", rr.in, string(e), string(a))
+			}
+		}
+	})
+}
+
+func Test_EventSrcErrorPwdError(t *testing.T) {
+	pwd, _ := os.Getwd()
+
+	// create INPUT RELATIVE PATH
+	var frel = fsnotify.Event{
+		Name: path.Join(pwd, "c.txt"),
+		Op:   2,
+	}
+
+	// create EXPECTED RELATIVE PATH fsnotify.Event
+	var eirel cmd.EventInfo = cmd.EventInfo{
+		cmd.Event{
+			Location: path.Join(pwd, "c.txt"),
+			Op:       "WRITE",
+		},
+		cmd.Meta{
+			ModTime: modt.ModTime().Truncate(time.Millisecond),
+			Mode:    420,
+			Name:    "c.txt",
+			Size:    6,
+		},
+	}
+
+	var Results = []struct {
+		in  fsnotify.Event
+		out cmd.EventInfo
+	}{
+		{frel, eirel},
+	}
+
+	t.Run("Test failing Getwd", func(t *testing.T) {
+
+		getWP := getWorkPathMock{}
+
+		getwdMock = func() (string, error) {
+			return "", errors.New("Getwd failed.")
+		}
+
+		for _, rr := range Results {
+
+			esrc := cmd.EventSrc(rr.in)
+			_, err := esrc()
+			if err != nil {
+				t.Fatal(err)
 			}
 		}
 	})

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -15,52 +16,99 @@ import (
 
 var Target string
 
-type EventInfo struct {
-	Event Event `json:"event"`
-	Meta  Meta  `json:"meta"`
+// [mocking os.Getwd] simply wraps os.Getwd() with getCurrentUserPath
+type getCurrentWorkingPath interface {
+	Getwd() (string, error)
 }
 
-type Event struct {
-	Location string `json:"location"`
-	Op       string `json:"op"`
-}
+// [mocking os.Getwd] implements Getwd() wrapper interface
+type getWorkPath struct{}
 
-type Meta struct {
-	ModTime time.Time   `json:"modTime"`
-	Mode    os.FileMode `json:"mode"`
-	Name    string      `json:"name"`
-	Size    int64       `json:"size"`
-}
+// errorString is a trivial implementation of error.
+// It has the Error Interface (as ponted to by th Error() method)
+// type errorString struct {
+// 	s string
+// }
 
-func getEventPath(target string) (eventpath string) {
-	if path.IsAbs(target) {
-		return target
+// [mocking os.Getwd]
+var getWP getCurrentWorkingPath
+
+type (
+	EventInfo struct {
+		Event Event `json:"event"`
+		Meta  Meta  `json:"meta"`
 	}
-	pwd, err := os.Getwd()
-	if err != nil {
-		fmt.Println(err)
+
+	Event struct {
+		Location string `json:"location"`
+		Op       string `json:"op"`
 	}
-	eventpath = path.Join(pwd, target)
-	return
+
+	Meta struct {
+		ModTime time.Time   `json:"modTime"`
+		Mode    os.FileMode `json:"mode"`
+		Name    string      `json:"name"`
+		Size    int64       `json:"size"`
+	}
+)
+
+// func (e *errorString) Error() string {
+// 	return e.s
+// }
+
+// func New(text string) error {
+// 	return &errorString{text}
+// }
+
+// [mocking os.Getwd] call to os.Getwd (3rd party)
+func (g getWorkPath) Getwd() (string, error) {
+	return os.Getwd()
 }
 
-func EventSrc(e fsnotify.Event) func() []EventInfo {
+// [mocking os.Getwd] assign instance of getWorkPath
+func init() {
+	getWP = getWorkPath{}
+}
+
+// func getEventPath(target string) (eventpath string) {
+// 	if path.IsAbs(target) {
+// 		return target
+// 	}
+// 	// os.Getwd called through helper mock wrapper
+// 	pwd, err := getWP.Getwd()
+// 	if err != nil {
+// 		fmt.Println(err)
+// 	}
+// 	eventpath = path.Join(pwd, target)
+// 	return
+// }
+
+// Parses the Event FileInfo and returns an EventInfo slice or error
+func EventSrc(e fsnotify.Event) func() ([]EventInfo, error) {
 	ep := e.Name
+	// nil by default
+	var eo error
+	ein := EventInfo{}
+	einfo := make([]EventInfo, 0)
 	if !path.IsAbs(e.Name) {
 		pwd, err := os.Getwd()
 		if err != nil {
-			log.Fatal(err)
+			// log.Fatal(err)
+			eo = errors.New("[EventSrc(event)] os.Getwd failed..")
 		}
 		ep = path.Join(pwd, e.Name)
 	}
-	return func() (einfo []EventInfo) {
+	return func() ([]EventInfo, error) {
+		if eo != nil {
+			return einfo, eo
+		}
 		// TODO Create ENV 'TESTING' and set to afero.NewMemMapFs()
 		var appFS = afero.NewOsFs()
 		fi, err := appFS.Stat(ep)
 		if err != nil {
-			log.Fatal(err)
+			return einfo, errors.New("[EventSrc(event)] os.Stat failed..")
 		}
-		ei := EventInfo{
+		ein = EventInfo{
 			Event{
 				Location: ep,
 				Op:       e.Op.String(),
@@ -72,8 +120,8 @@ func EventSrc(e fsnotify.Event) func() []EventInfo {
 				Size:    fi.Size(),
 			},
 		}
-		einfo = append(einfo, ei)
-		return
+		einfo = append(einfo, ein)
+		return einfo, eo
 	}
 }
 
@@ -97,10 +145,14 @@ func activateDirWatcher(targetDir string) {
 				log.Printf("event: %v, eventT: %T", event, event)
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					esrc := EventSrc(event)
+					ev, err := esrc()
+					if err != nil {
+						log.Fatal(err)
+					}
 
 					// Just for local testing
-					einfo, _ := json.Marshal(esrc())
-					fmt.Printf("einfol: %v, eiT: %T", string(einfo), esrc())
+					einfo, _ := json.Marshal(ev)
+					fmt.Printf("einfol: %v, eiT: %T", string(einfo), ev)
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
