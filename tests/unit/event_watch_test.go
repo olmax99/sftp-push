@@ -7,19 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
+	"github.com/olmax99/fsnotify"
 	"github.com/olmax99/sftppush/pkg/event"
 	"github.com/spf13/afero"
 )
 
-// var getwdMock func() (string, error)
-
-// type getWorkPathMock struct{}
-
-// func (p getWorkPathMock) Getwd() (string, error) {
-// 	return getwdMock()
-// }
-
+// Ensure that there is always an absolute path in the output of EventSrc
 func Test_EventSrc(t *testing.T) {
 	// Create Test files
 	// TODO Will only work with ENV 'TESTING' set
@@ -34,46 +27,6 @@ func Test_EventSrc(t *testing.T) {
 
 	// cleanup only guaranteed for /tmp/*.* files
 	defer appfs.Remove(path.Join(pwd, "c.txt"))
-
-	// create INPUT ABS PATH
-	// var fabs = fsnotify.Event{
-	// 	Name: "/tmp/c.txt",
-	// 	Op:   2,
-	// }
-
-	// create EXPECTED ABS PATH fsnotify.Event
-	// var eiabs event.EventInfo = event.EventInfo{
-	// 	event.Event{
-	// 		Location: "/tmp/c.txt",
-	// 		Op:       "WRITE",
-	// 	},
-	// 	event.Meta{
-	// 		ModTime: modt.ModTime().Truncate(time.Millisecond),
-	// 		Mode:    420,
-	// 		Name:    "c.txt",
-	// 		Size:    6,
-	// 	},
-	// }
-
-	// create INPUT RELATIVE PATH
-	// var frel = fsnotify.Event{
-	// 	Name: path.Join(pwd, "c.txt"),
-	// 	Op:   2,
-	// }
-
-	// create EXPECTED RELATIVE PATH fsnotify.Event
-	// var eirel event.EventInfo = event.EventInfo{
-	// 	event.Event{
-	// 		Location: path.Join(pwd, "c.txt"),
-	// 		Op:       "WRITE",
-	// 	},
-	// 	event.Meta{
-	// 		ModTime: modt.ModTime().Truncate(time.Millisecond),
-	// 		Mode:    420,
-	// 		Name:    "c.txt",
-	// 		Size:    6,
-	// 	},
-	// }
 
 	var Results = []struct {
 		in  string
@@ -98,7 +51,6 @@ func Test_EventSrc(t *testing.T) {
 func Test_info(t *testing.T) {
 	appfs := afero.NewOsFs()
 	afero.WriteFile(appfs, "/tmp/c.txt", []byte("file c"), 0644)
-	// pwd, _ := os.Getwd()
 	modt, _ := appfs.Stat("/tmp/c.txt")
 
 	// create INPUT RELATIVE PATH
@@ -128,7 +80,7 @@ func Test_info(t *testing.T) {
 		{frel, eiabs},
 	}
 
-	t.Run("Test info EventInfo output", func(t *testing.T) {
+	t.Run("Test FsEvent info output", func(t *testing.T) {
 		for _, rr := range Results {
 			actEv := &event.FsEvent{
 				Event: rr.in,

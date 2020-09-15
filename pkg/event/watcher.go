@@ -8,7 +8,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
+	"github.com/olmax99/fsnotify"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
 )
@@ -33,10 +33,11 @@ func (o *FsEventOps) FsInfo(evPath string) (os.FileInfo, error) {
 
 // returns the EventInfo object based on FsEvent interface operations
 func (e *FsEvent) Info() (*EventInfo, error) {
-	path := e.Event.Name
-	// if err != nil {
-	// 	return nil, err
-	// }
+	path, err := e.Ops.EventSrc(e.Event.Name)
+	if err != nil {
+		return nil, err
+	}
+
 	fi, err := e.Ops.FsInfo(path)
 	if err != nil {
 		return nil, err
@@ -57,7 +58,6 @@ func (e *FsEvent) Info() (*EventInfo, error) {
 
 // Implements fsnotify file event watcher on a target directory
 func (o *FsEventOps) NewWatcher(targetDir string) {
-	// TODO Create a watcher for every target in target file
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
@@ -84,6 +84,8 @@ func (o *FsEventOps) NewWatcher(targetDir string) {
 						log.Printf("error getting event info: %s", err)
 						return
 					}
+
+					// Process file through decompressing task
 
 					// only for testing
 					einfo, err := json.Marshal(ev)

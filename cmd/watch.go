@@ -26,6 +26,8 @@ var cmdWatch = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		log.Printf("I AM WATCHING: %v !! \n", Target)
 
+		// TODO Catch errors, implement a notification service
+		// TODO Multiple targets - create a watcher for every target in target file
 		e := event.FsEventOps{}
 		e.NewWatcher(Target)
 

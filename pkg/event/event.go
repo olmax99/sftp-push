@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
+	"github.com/olmax99/fsnotify"
 )
 
 // encapsulates file event and the FsEventOperations interface
@@ -19,7 +19,6 @@ type FsEventOperations interface {
 	EventSrc(path string) (string, error)
 	FsInfo(path string) (os.FileInfo, error)
 	NewWatcher(path string)
-	//Info() (*EventInfo, error)
 }
 
 // Implements the FsEventOperations interface
