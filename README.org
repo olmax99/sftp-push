@@ -28,10 +28,10 @@ multiple target directories.
 
 The =watch --target= flag can read a single directory as well as a configuration
 file containing multiple directories. In case of multiple directory targets
-their will be a separate =go watch process= spawned for each target, respectively. 
+there will be a separate =go watch process= spawned for each target directory respectively. 
 
 It will decompress those files depending on their format and will push those
-further to an AWS S3 Bucket location. 
+further to an AWS S3 Bucket location that resembles its current path.. 
 
 * Quick Launch
 ** 1. Configure a single S3 Bucket location
