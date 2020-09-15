@@ -7,17 +7,17 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/olmax99/sftppush/cmd"
+	"github.com/olmax99/sftppush/pkg/event"
 	"github.com/spf13/afero"
 )
 
-var getwdMock func() (string, error)
+// var getwdMock func() (string, error)
 
-type getWorkPathMock struct{}
+// type getWorkPathMock struct{}
 
-func (p getWorkPathMock) Getwd() (string, error) {
-	return getwdMock()
-}
+// func (p getWorkPathMock) Getwd() (string, error) {
+// 	return getwdMock()
+// }
 
 func Test_EventSrc(t *testing.T) {
 	// Create Test files
@@ -40,12 +40,12 @@ func Test_EventSrc(t *testing.T) {
 	}
 
 	// create EXPECTED ABS PATH fsnotify.Event
-	var eiabs cmd.EventInfo = cmd.EventInfo{
-		cmd.Event{
+	var eiabs event.EventInfo = event.EventInfo{
+		event.Event{
 			Location: "/tmp/c.txt",
 			Op:       "WRITE",
 		},
-		cmd.Meta{
+		event.Meta{
 			ModTime: modt.ModTime().Truncate(time.Millisecond),
 			Mode:    420,
 			Name:    "c.txt",
@@ -60,12 +60,12 @@ func Test_EventSrc(t *testing.T) {
 	}
 
 	// create EXPECTED RELATIVE PATH fsnotify.Event
-	var eirel cmd.EventInfo = cmd.EventInfo{
-		cmd.Event{
+	var eirel event.EventInfo = event.EventInfo{
+		event.Event{
 			Location: path.Join(pwd, "c.txt"),
 			Op:       "WRITE",
 		},
-		cmd.Meta{
+		event.Meta{
 			ModTime: modt.ModTime().Truncate(time.Millisecond),
 			Mode:    420,
 			Name:    "c.txt",
@@ -75,7 +75,7 @@ func Test_EventSrc(t *testing.T) {
 
 	var Results = []struct {
 		in  fsnotify.Event
-		out cmd.EventInfo
+		out event.EventInfo
 	}{
 		{fabs, eiabs},
 		{frel, eirel},
@@ -83,7 +83,7 @@ func Test_EventSrc(t *testing.T) {
 
 	t.Run("Test input abs and rel path", func(t *testing.T) {
 		for _, rr := range Results {
-			eact := &cmd.FsEventOps{}
+			eact := &event.FsEventOps{}
 			act, _ := eact.EventSrc(rr.in.Name)
 
 			if act != rr.out.Event.Location {
