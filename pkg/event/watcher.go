@@ -32,19 +32,19 @@ func (o *FsEventOps) FsInfo(evPath string) (os.FileInfo, error) {
 }
 
 // returns the EventInfo object based on FsEvent interface operations
-func (e *FsEvent) info() (*EventInfo, error) {
-	path, err := e.ops.EventSrc(e.event.Name)
-	if err != nil {
-		return nil, err
-	}
-	fi, err := e.ops.FsInfo(path)
+func (e *FsEvent) Info() (*EventInfo, error) {
+	path := e.Event.Name
+	// if err != nil {
+	// 	return nil, err
+	// }
+	fi, err := e.Ops.FsInfo(path)
 	if err != nil {
 		return nil, err
 	}
 	return &EventInfo{
 		Event{
 			Location: path,
-			Op:       e.event.Op.String(),
+			Op:       e.Event.Op.String(),
 		},
 		Meta{
 			ModTime: fi.ModTime().Truncate(time.Millisecond),
@@ -76,15 +76,16 @@ func (o *FsEventOps) NewWatcher(targetDir string) {
 				log.Printf("event: %v, eventT: %T", event, event)
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					fsEv := &FsEvent{
-						event: event,
-						ops:   &FsEventOps{},
+						Event: event,
+						Ops:   &FsEventOps{},
 					}
-					ev, err := fsEv.info()
+					ev, err := fsEv.Info()
 					if err != nil {
 						log.Printf("error getting event info: %s", err)
 						return
 					}
 
+					// only for testing
 					einfo, err := json.Marshal(ev)
 					if err != nil {
 						log.Printf("error marshaling event: %s", err)

@@ -9,8 +9,8 @@ import (
 
 // encapsulates file event and the FsEventOperations interface
 type FsEvent struct {
-	event fsnotify.Event
-	ops   FsEventOperations
+	Event fsnotify.Event
+	Ops   FsEventOperations
 }
 
 // Captures both the source path of a new file event and
@@ -19,21 +19,25 @@ type FsEventOperations interface {
 	EventSrc(path string) (string, error)
 	FsInfo(path string) (os.FileInfo, error)
 	NewWatcher(path string)
+	//Info() (*EventInfo, error)
 }
 
 // Implements the FsEventOperations interface
 type FsEventOps struct{}
 
+// Parent of the Event output with two children: Event and Meta
 type EventInfo struct {
 	Event Event `json:"event"`
 	Meta  Meta  `json:"meta"`
 }
 
+// Implements child of parent EventInfo
 type Event struct {
 	Location string `json:"location"`
 	Op       string `json:"op"`
 }
 
+// Implements child of parent EventInfo
 type Meta struct {
 	ModTime time.Time   `json:"modTime"`
 	Mode    os.FileMode `json:"mode"`
