@@ -8,7 +8,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/olmax99/fsnotify"
+	"github.com/fsnotify/fsnotify"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
 )

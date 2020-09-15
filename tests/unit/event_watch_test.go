@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/olmax99/fsnotify"
+	"github.com/fsnotify/fsnotify"
 	"github.com/olmax99/sftppush/pkg/event"
 	"github.com/spf13/afero"
 )

@@ -4,7 +4,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/olmax99/fsnotify"
+	"github.com/fsnotify/fsnotify"
 )
 
 // encapsulates file event and the FsEventOperations interface
