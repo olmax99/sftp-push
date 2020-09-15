@@ -74,7 +74,7 @@ func (o *FsEventOps) NewWatcher(targetDir string) {
 				}
 				// all events are caught by default
 				log.Printf("event: %v, eventT: %T", event, event)
-				if event.Op&fsnotify.Write == fsnotify.Write {
+				if event.Op&fsnotify.CloseWrite == fsnotify.CloseWrite {
 					fsEv := &FsEvent{
 						Event: event,
 						Ops:   &FsEventOps{},
