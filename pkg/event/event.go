@@ -19,6 +19,8 @@ type FsEventOperations interface {
 	EventSrc(path string) (string, error)
 	FsInfo(path string) (os.FileInfo, error)
 	NewWatcher(path string)
+	Listen(watcher fsnotify.Watcher, targetevents chan<- EventInfo)
+	Decompress(targetevents <-chan EventInfo)
 }
 
 // Implements the FsEventOperations interface

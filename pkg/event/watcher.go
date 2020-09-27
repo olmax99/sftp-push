@@ -1,8 +1,6 @@
 package event
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"path"
@@ -62,50 +60,27 @@ func (o *FsEventOps) NewWatcher(targetDir string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer watcher.Close()
+	defer watcher.Close() // close SEND Channel
 
+	// Should this channel not be passed on from fsnotify.NewWatcher?
+	// watcher.done seems to be private and not acessible from here..
+	// How is a new done channel even working here?
+	// fmt.Printf("%#v", watcher)
 	done := make(chan bool)
-	go func() {
-		for {
-			select {
-			case event, ok := <-watcher.Events:
-				if !ok {
-					return
-				}
-				// all events are caught by default
-				log.Printf("event: %v, eventT: %T", event, event)
-				if event.Op&fsnotify.CloseWrite == fsnotify.CloseWrite {
-					fsEv := &FsEvent{
-						Event: event,
-						Ops:   &FsEventOps{},
-					}
-					ev, err := fsEv.Info()
-					if err != nil {
-						log.Printf("error getting event info: %s", err)
-						return
-					}
+	targetevent := make(chan EventInfo)
+	// decompressed := make(chan string)
 
-					// Process file through decompressing task
+	go o.Listen(*watcher, targetevent)
+	go o.Decompress(targetevent)
+	// go o.Push(decompressed)
 
-					// only for testing
-					einfo, err := json.Marshal(ev)
-					if err != nil {
-						log.Printf("error marshaling event: %s", err)
-					}
-					fmt.Printf("einfo: %v, eiT: %T", string(einfo), ev)
-				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					return
-				}
-				log.Println("error:", err)
-			}
-		}
-	}()
-
+	// Add directory to *Watcher
 	err = watcher.Add(targetDir)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("watcher.Add %s", err)
 	}
-	<-done
+
+	// Which token is released here? as there was none being send to new done channel..
+	// Is this just blocking? Why?
+	<-done // Release the token
 }

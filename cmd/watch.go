@@ -13,7 +13,7 @@ var Target string
 var cmdWatch = &cobra.Command{
 	Use:   "watch",
 	Short: "Start the fsnotify file system event watcher",
-	Long:  `Use the watch command with a --target flag to indicate in order to watch it.`,
+	Long:  `Use the watch command with a --target flag to indicate the directory, which is listened on for file events.`,
 	// Args: func(cmd *cobra.Command, args []string) error {
 	// 	if len(args) < 1 {
 	// 		return errors.New("requires a color argument")
@@ -29,6 +29,8 @@ var cmdWatch = &cobra.Command{
 		// TODO Catch errors, implement a notification service
 		// TODO Multiple targets - create a watcher for every target in target file
 		e := event.FsEventOps{}
+
+		// implements fsnotify.NewWatcher
 		e.NewWatcher(Target)
 
 		return nil
