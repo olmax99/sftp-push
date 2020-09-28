@@ -20,7 +20,7 @@ type FsEventOperations interface {
 	FsInfo(path string) (os.FileInfo, error)
 	NewWatcher(path string)
 	Listen(watcher fsnotify.Watcher, targetevents chan<- EventInfo)
-	Decompress(targetevents <-chan EventInfo)
+	Decompress(targetevents <-chan EventInfo, decompressed chan<- byte)
 }
 
 // Implements the FsEventOperations interface
