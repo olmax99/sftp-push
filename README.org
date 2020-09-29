@@ -12,26 +12,24 @@ of mounting an Sftp server's file system directly onto S3 FUSE this solution
 seems to be more fit for production use cases.
 
 * Prerequisites
-- Go 1.13.x
+- Go 1.15.x
 
 * Design
-# #+CAPTION: project
-# #+attr_html: :width 200px
-# [[file:images/helm-plus-metabase.png][file:./images/*.png]]
+#+CAPTION: concurrency
+#+attr_html: :width 200px
+[[file:images/helm-plus-metabase.png][file:./images/sftppush_concurrency_design.png]]
 
 Most likely you want to run this project inside an Sftp server, that receives a
 constant stream of data files.
 
-The *sftppush* project is intended to run in a Linux (Ubuntu/Debian) VM. It
+The **sftppush** project is intended to run in a Linux (Ubuntu/Debian) VM. It
 captures WRITE_CLOSE events for files on the file system based on a single or
-multiple target directories.
+multiple source directories.
 
-The =watch --target= flag can read a single directory as well as a configuration
+The =watch --source= flag can read a single directory as well as a configuration
 file containing multiple directories. In case of multiple directory targets
-there will be a separate =go watch process= spawned for each target directory respectively. 
+there will be a separate =go watch process= spawned for each target directory, respectively. 
 
-It will decompress those files depending on their format and will push those
-further to an AWS S3 Bucket location that resembles its current path.. 
 
 * Quick Launch
 ** 1. Configure a single S3 Bucket location
@@ -39,7 +37,7 @@ further to an AWS S3 Bucket location that resembles its current path..
 
 ** 2. Run the event watcher on a single local directory 
 Running it should be as simple as:
-#+BEGIN_SRC 
+#+BEGIN_SRC  
 $ make build
 $ bin/sftppush-0.1.0-linux_amd64 help
 $ bin/sftppush-0.1.0-linux_amd64 watch --target local_test_dir/

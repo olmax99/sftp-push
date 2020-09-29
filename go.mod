@@ -1,6 +1,7 @@
 module github.com/olmax99/sftppush
 
 require (
+	github.com/aws/aws-sdk-go v1.34.33
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/pkg/errors v0.9.1

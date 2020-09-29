@@ -1,26 +1,30 @@
 package event
 
 import (
+	"io"
 	"os"
 	"time"
 
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/fsnotify/fsnotify"
 )
 
-// encapsulates file event and the FsEventOperations interface
+// FsEvent encapsulates file event and the FsEventOperations interface
 type FsEvent struct {
 	Event fsnotify.Event
 	Ops   FsEventOperations
 }
 
-// Captures both the source path of a new file event and
-// the respective file info of the target file object.
+// FsEventOperations contains all methods necessarry for processing local file events
 type FsEventOperations interface {
 	EventSrc(path string) (string, error)
 	FsInfo(path string) (os.FileInfo, error)
-	NewWatcher(path string)
-	Listen(watcher fsnotify.Watcher, targetevents chan<- EventInfo)
-	Decompress(targetevents <-chan EventInfo, decompressed chan<- byte)
+	NewWatcher(path string, conn *s3.S3, bucket *string)
+	FType(path string) (string, error)
+	Listen(watcher *fsnotify.Watcher, targetevents chan<- EventInfo)
+	Decompress(targetevents <-chan EventInfo, session *s3.S3, bucket *string, s3results chan<- *s3manager.UploadOutput)
+	PushS3(bytes io.Reader, sess *s3.S3, s3target *string, s3key *string, results chan<- *s3manager.UploadOutput)
 }
 
 // Implements the FsEventOperations interface
@@ -34,8 +38,9 @@ type EventInfo struct {
 
 // Implements child of parent EventInfo
 type Event struct {
-	Location string `json:"location"`
-	Op       string `json:"op"`
+	RelLoc string `json:"relloc"`
+	AbsLoc string `json:"absloc"`
+	Op     string `json:"op"`
 }
 
 // Implements child of parent EventInfo

@@ -62,8 +62,9 @@ func Test_info(t *testing.T) {
 	// create EXPECTED RELATIVE PATH fsnotify.Event
 	var eiabs event.EventInfo = event.EventInfo{
 		event.Event{
-			Location: "/tmp/c.txt",
-			Op:       "WRITE",
+			RelLoc: "",
+			AbsLoc: "/tmp/c.txt",
+			Op:     "WRITE",
 		},
 		event.Meta{
 			ModTime: modt.ModTime().Truncate(time.Millisecond),
@@ -89,8 +90,8 @@ func Test_info(t *testing.T) {
 
 			eact, _ := actEv.Info()
 
-			if eact.Event.Location != rr.out.Event.Location {
-				t.Errorf("<&FsEvent>.Info() => %s, want %s", eact.Event.Location, rr.out.Event.Location)
+			if eact.Event.AbsLoc != rr.out.Event.AbsLoc {
+				t.Errorf("<&FsEvent>.Info() => %s, want %s", eact.Event.AbsLoc, rr.out.Event.AbsLoc)
 			}
 
 		}

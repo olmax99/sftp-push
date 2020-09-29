@@ -6,6 +6,8 @@ import (
 	"path"
 	"time"
 
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/fsnotify/fsnotify"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
@@ -42,8 +44,9 @@ func (e *FsEvent) Info() (*EventInfo, error) {
 	}
 	return &EventInfo{
 		Event{
-			Location: path,
-			Op:       e.Event.Op.String(),
+			RelLoc: e.Event.Name,
+			AbsLoc: path,
+			Op:     e.Event.Op.String(),
 		},
 		Meta{
 			ModTime: fi.ModTime().Truncate(time.Millisecond),
@@ -55,7 +58,7 @@ func (e *FsEvent) Info() (*EventInfo, error) {
 }
 
 // Implements fsnotify file event watcher on a target directory
-func (o *FsEventOps) NewWatcher(targetDir string) {
+func (o *FsEventOps) NewWatcher(targetDir string, conn *s3.S3, targetBucket *string) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
@@ -68,16 +71,22 @@ func (o *FsEventOps) NewWatcher(targetDir string) {
 	// fmt.Printf("%#v", watcher)
 	done := make(chan bool)
 	targetevent := make(chan EventInfo)
-	// decompressed := make(chan string)
+	results := make(chan *s3manager.UploadOutput)
 
-	go o.Listen(*watcher, targetevent)
-	go o.Decompress(targetevent)
-	// go o.Push(decompressed)
+	go o.Listen(watcher, targetevent)
+	go o.Decompress(targetevent, conn, targetBucket, results)
+
+	// only for Testing
+	go func() {
+		for f := range results {
+			log.Printf("INFO[+] Results: %#v\n", f)
+		}
+	}()
 
 	// Add directory to *Watcher
 	err = watcher.Add(targetDir)
 	if err != nil {
-		log.Printf("watcher.Add %s", err)
+		log.Printf("ERROR[-] NewWatcher.Add %s", err)
 	}
 
 	// Which token is released here? as there was none being send to new done channel..
