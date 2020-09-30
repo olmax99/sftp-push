@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -16,7 +18,8 @@ import (
 
 //!+job-2
 
-func (o FsEventOps) PushS3(in io.Reader, c *s3.S3, s3t *string, obj *string, out chan<- *s3manager.UploadOutput) {
+func (o FsEventOps) PushS3(in io.Reader, c *s3.S3, s3t *string, obj *string, out chan<- *s3manager.UploadOutput, wg *sync.WaitGroup) {
+	defer wg.Done()
 	uploader := s3manager.NewUploaderWithClient(c, func(u *s3manager.Uploader) {
 		u.PartSize = 64 * 1024 * 1024 // 64MB per part
 	})
@@ -58,7 +61,10 @@ func (o FsEventOps) FType(epath string) (string, error) {
 
 // Decompress detects the file type and sends the decompressed byte stream to the PushS3 job
 func (o *FsEventOps) Decompress(in <-chan EventInfo, s3client *s3.S3, s3bucket *string, out chan<- *s3manager.UploadOutput) {
+	var wg sync.WaitGroup
 	for e := range in {
+		wg.Add(1)
+
 		log.Printf("DEBUG[*] Job-1: Decompress start ..\n")
 		p := e.Event.AbsLoc
 		ft, err := o.FType(p)
@@ -80,7 +86,11 @@ func (o *FsEventOps) Decompress(in <-chan EventInfo, s3client *s3.S3, s3bucket *
 			if err != nil {
 				log.Printf("WARNING[-] Job-1: gzip.NewReader, %s\n", err)
 			}
-			go o.PushS3(gz, s3client, s3bucket, &e.Event.RelLoc, out)
+			// Adjust suffix
+			var k string
+			k = strings.TrimSuffix(e.Event.RelLoc, ".gzip")
+			k = strings.TrimSuffix(e.Event.RelLoc, ".gz")
+			go o.PushS3(gz, s3client, s3bucket, &k, out, &wg)
 		case "application/zip":
 			log.Printf("DEBUG[*] Job-1: fT %s, %s\n", ft, filepath.Base(p))
 		default:
@@ -91,6 +101,11 @@ func (o *FsEventOps) Decompress(in <-chan EventInfo, s3client *s3.S3, s3bucket *
 		}
 
 	}
+
+	go func() {
+		// Blocking until job-1 and job-2 are finished
+		wg.Wait()
+	}()
 }
 
 //!-job-1
@@ -119,7 +134,7 @@ func (o *FsEventOps) Listen(w *fsnotify.Watcher, out chan<- EventInfo) {
 
 				// -> Process file through decompress job-1
 				//     -> Process decompressed stream to job-2 S3 upload
-				out <- *ev // SEND needs close
+				out <- *ev // SEND needs no close as infinite amount of Events
 
 				// only for testing
 				einfo, err := json.Marshal(ev)
@@ -131,6 +146,9 @@ func (o *FsEventOps) Listen(w *fsnotify.Watcher, out chan<- EventInfo) {
 
 		case err, ok := <-w.Errors: // RECEIVE eventError
 			if !ok {
+				// TODO Will this exit the Listen() func?? when channel
+				// w.Errors gets closed??
+				// Where gets the w.Errors channel closed??
 				return
 			}
 			log.Printf("ERROR[-] Job-0: Listen %s\n", err)

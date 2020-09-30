@@ -66,7 +66,7 @@ func (o *FsEventOps) NewWatcher(targetDir string, conn *s3.S3, targetBucket *str
 	defer watcher.Close() // close SEND Channel
 
 	// Should this channel not be passed on from fsnotify.NewWatcher?
-	// watcher.done seems to be private and not acessible from here..
+	// watcher.done seems to be private and not accessible from here..
 	// How is a new done channel even working here?
 	// fmt.Printf("%#v", watcher)
 	done := make(chan bool)
@@ -77,6 +77,7 @@ func (o *FsEventOps) NewWatcher(targetDir string, conn *s3.S3, targetBucket *str
 	go o.Decompress(targetevent, conn, targetBucket, results)
 
 	// only for Testing
+	// Wait for all results in the background
 	go func() {
 		for f := range results {
 			log.Printf("INFO[+] Results: %#v\n", f)

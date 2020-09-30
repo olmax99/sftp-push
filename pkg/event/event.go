@@ -3,6 +3,7 @@ package event
 import (
 	"io"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -24,7 +25,7 @@ type FsEventOperations interface {
 	FType(path string) (string, error)
 	Listen(watcher *fsnotify.Watcher, targetevents chan<- EventInfo)
 	Decompress(targetevents <-chan EventInfo, session *s3.S3, bucket *string, s3results chan<- *s3manager.UploadOutput)
-	PushS3(bytes io.Reader, sess *s3.S3, s3target *string, s3key *string, results chan<- *s3manager.UploadOutput)
+	PushS3(bytes io.Reader, sess *s3.S3, s3bucket *string, s3key *string, results chan<- *s3manager.UploadOutput, wg *sync.WaitGroup)
 }
 
 // Implements the FsEventOperations interface
