@@ -18,8 +18,18 @@ import (
 
 //!+job-2
 
-func (o FsEventOps) PushS3(in io.Reader, c *s3.S3, s3t *string, obj *string, out chan<- *s3manager.UploadOutput, wg *sync.WaitGroup) {
+// Remove waits for S3 upload to finish and removes event file
+func (o FsEventOps) Remove(e EventInfo, wg *sync.WaitGroup) {
 	defer wg.Done()
+	if err := os.Remove(e.Event.AbsLoc); err != nil {
+		log.Printf("ERROR[-] Job-2: Remove %s", err)
+	}
+	log.Printf("INFO[-] Job-2: Remove %s", e.Event.RelLoc)
+}
+
+// PushS3 uploads the source event file byte stream to S3 and removes the file
+func (o FsEventOps) PushS3(in io.Reader, c *s3.S3, s3t *string, obj *string, out chan<- *s3manager.UploadOutput, wg *sync.WaitGroup, ei *EventInfo) {
+	// defer wg.Done()
 	uploader := s3manager.NewUploaderWithClient(c, func(u *s3manager.Uploader) {
 		u.PartSize = 64 * 1024 * 1024 // 64MB per part
 	})
@@ -30,9 +40,12 @@ func (o FsEventOps) PushS3(in io.Reader, c *s3.S3, s3t *string, obj *string, out
 	}
 	r, err := uploader.Upload(&upl)
 	if err != nil {
+		// TODO send upload error to RETRY
 		log.Printf("WARNING[-] Job-2: PushS3 %s", err)
+	} else {
+		out <- r
+		o.Remove(*ei, wg)
 	}
-	out <- r
 }
 
 //!-job-2
@@ -90,7 +103,7 @@ func (o *FsEventOps) Decompress(in <-chan EventInfo, s3client *s3.S3, s3bucket *
 			var k string
 			k = strings.TrimSuffix(e.Event.RelLoc, ".gzip")
 			k = strings.TrimSuffix(e.Event.RelLoc, ".gz")
-			go o.PushS3(gz, s3client, s3bucket, &k, out, &wg)
+			go o.PushS3(gz, s3client, s3bucket, &k, out, &wg, &e)
 		case "application/zip":
 			log.Printf("DEBUG[*] Job-1: fT %s, %s\n", ft, filepath.Base(p))
 		default:
@@ -101,7 +114,6 @@ func (o *FsEventOps) Decompress(in <-chan EventInfo, s3client *s3.S3, s3bucket *
 		}
 
 	}
-
 	go func() {
 		// Blocking until job-1 and job-2 are finished
 		wg.Wait()
