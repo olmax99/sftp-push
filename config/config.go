@@ -1,58 +1,85 @@
 package config
 
 import (
-	"time"
+	"log"
+	"os"
+	"strings"
 
 	"github.com/spf13/viper"
 )
 
-// Provider defines a set of read-only methods for accessing the application
-// configuration params as defined in one of the config files.
-type Provider interface {
-	ConfigFileUsed() string
-	Get(key string) interface{}
-	GetBool(key string) bool
-	GetDuration(key string) time.Duration
-	GetFloat64(key string) float64
-	GetInt(key string) int
-	GetInt64(key string) int64
-	GetSizeInBytes(key string) uint
-	GetString(key string) string
-	GetStringMap(key string) map[string]interface{}
-	GetStringMapString(key string) map[string]string
-	GetStringMapStringSlice(key string) map[string][]string
-	GetStringSlice(key string) []string
-	GetTime(key string) time.Time
-	InConfig(key string) bool
-	IsSet(key string) bool
-}
-
 var defaultConfig *viper.Viper
 
-// Config returns a default config providers
-func Config() Provider {
-	return defaultConfig
-}
-
-// LoadConfigProvider returns a configured viper instance
-func LoadConfigProvider(appName string) Provider {
-	return readViperConfig(appName)
-}
-
-func init() {
-	defaultConfig = readViperConfig("SFTPPUSH")
-}
-
-func readViperConfig(appName string) *viper.Viper {
+func ReadConfig(appName string, cfgFile string) *viper.Viper {
 	v := viper.New()
+	// Defines Prefix for ENV variables and parses them by default
 	v.SetEnvPrefix(appName)
-	v.AutomaticEnv()
 
-	// global defaults
-	
-	v.SetDefault("json_logs", false)
-	v.SetDefault("loglevel", "debug")
-	
+	v.AutomaticEnv()
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	// global defaults (key value)
+	v.SetDefault("defaults.userpath", "/home")
+	// v.SetDefault("loglevel", "debug")
+
+	if cfgFile != "" {
+		// Use config file from the flag.
+		v.SetConfigFile(cfgFile)
+	} else {
+		// Find home directory.
+		home, err := os.UserHomeDir()
+		if err != nil {
+			log.Printf("%s", err)
+		}
+
+		// Search config in home directory with name ".sftppush" (without extension).
+		v.AddConfigPath(home)
+		v.SetConfigName(".sftppush")
+	}
+
+	// Read config file and not found action
+	if err := v.ReadInConfig(); err == nil {
+		log.Printf("Using config file: %s\n", v.ConfigFileUsed())
+
+	} else {
+		log.Println(err)
+	}
+
+	// Use if existing config exists
+	// v.MergeConfigMap(cfg map[string]interface{})
 
 	return v
 }
+
+// TODO config file Validation
+// from Hugo https://github.com/gohugoio/hugo/blob/master/config/configLoader.go
+// var (
+// 	ValidConfigFileExtensions                    = []string{"toml", "yaml", "yml", "json"}
+// 	validConfigFileExtensionsMap map[string]bool = make(map[string]bool)
+// )
+
+// func init() {
+// 	for _, ext := range ValidConfigFileExtensions {
+// 		validConfigFileExtensionsMap[ext] = true
+// 	}
+// }
+
+// // IsValidConfigFilename returns whether filename is one of the supported
+// // config formats in Hugo.
+// func IsValidConfigFilename(filename string) bool {
+// 	ext := strings.ToLower(strings.TrimPrefix(filepath.Ext(filename), "."))
+// 	return validConfigFileExtensionsMap[ext]
+// }
+
+// // FromConfigString creates a config from the given YAML, JSON or TOML config. This is useful in tests.
+// func FromConfigString(config, configType string) (Provider, error) {
+// 	v := newViper()
+// 	m, err := readConfig(metadecoders.FormatFromString(configType), []byte(config))
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	v.MergeConfigMap(m)
+
+// 	return v, nil
+// }
