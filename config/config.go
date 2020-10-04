@@ -18,8 +18,8 @@ func ReadConfig(appName string, cfgFile string) *viper.Viper {
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-	// global defaults (key value)
-	v.SetDefault("defaults.userpath", "/home")
+	// global defaults (key value) - need trailing '/'
+	v.SetDefault("defaults.userpath", "/home/")
 	// v.SetDefault("loglevel", "debug")
 
 	if cfgFile != "" {

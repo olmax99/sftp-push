@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"log"
+	"os"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -45,30 +46,46 @@ directory, which is listened on for file events.`),
 	// 	return fmt.Errorf("invalid color specified: %s", args[0])
 	// },
 	RunE: func(cmd *cobra.Command, args []string) error {
-		log.Printf("DEBUG[+]: watch --source %#v \n", src)
+		log.Printf("DEBUG[*] cmdWatch: %s", src)
 
-		// TODO This should come from config.go (viper)
-		// There should be 2 ways of setting it:
-		// 1. Through config.yaml
-		// 2. overwrite with SFTPPUSH_bucket
-		var target string = "olmax-test-sftppush-126912"
+		if n := cmd.Flags().NFlag(); n < 1 {
+			return errors.New("Use either '--source' flag or '--config'.")
+		}
 
-		log.Printf("DEBUG[*] configWatch (from config): %q", &wC)
+		log.Printf("DEBUG[*] cfgWatch (from config): %q", &wC)
+
+		// Will overwrite config values if both --config and --sources are set
+		if cmd.Flag("source").Changed {
+			if err := wC.unmarshalWatchFlag(src); err != nil {
+				log.Fatalf("FATAL[*] decodeWatchFlag: %s", err)
+				return errors.Wrapf(err, "decodeWatchFlag: %q", src)
+			}
+		}
+
 		// TODO Catch errors, implement a notification service
-		// TODO Multiple targets - create a watcher for every target in target file
 		e := event.FsEventOps{}
 		conn := newS3Conn()
 
-		f, err := wC.unmarshalWatchFlag(src)
-		if err != nil {
-			log.Fatalf("FATAL[*] decodeWatchFlag: %s", err)
-		}
-
-		log.Printf("DEBUG[*] cmdWatch (from flags): %q", f)
-
-		// implements fsnotify.NewWatcher
-		for _, s := range src {
-			e.NewWatcher(s, conn, &target)
+		log.Printf("DEBUG[*] targetDirs: %#v", &wC.Watch.Users[0])
+		// implements fsnotify.NewWatcher per user per source directory
+		// users
+		//  --> user1
+		//    --> path/to/dir1    <- New fsnotify.watcher
+		//    --> path/to/dir2    <- New fsnotify.watcher
+		srcD := &wC.Defaults.Userpath
+		arrU := &wC.Watch.Users
+		for _, u := range *arrU {
+			targetD := *srcD + u.Name // <defaults.userpath> + <watch.source.name>
+			targetB := &u.S3Target
+			for _, srcP := range u.Sources {
+				log.Printf("INFO[+] NewWatcher %q at %s on %s", conn.Endpoint, targetD+srcP, *targetB)
+				tDir := targetD + srcP
+				d, err := checkDir(tDir)
+				if err != nil || !d {
+					return errors.Wrapf(err, "e.NewWatcher: targetDir %s does not exist.", tDir)
+				}
+				e.NewWatcher(tDir, conn, targetB)
+			}
 		}
 		return nil
 	},
@@ -80,14 +97,27 @@ func init() {
 	// cmdWatch.MarkFlagRequired("source")
 }
 
-func (w *watchConfig) unmarshalWatchFlag(flagIn []string) (*watchConfig, error) {
+func checkDir(p string) (bool, error) {
+	fi, err := os.Stat(p)
+	if err != nil {
+		return false, err
+	}
+	switch mode := fi.Mode(); {
+	case mode.IsDir():
+	case mode.IsRegular():
+		return false, nil
+	}
+	return true, nil
+}
+
+func (w *watchConfig) unmarshalWatchFlag(flagIn []string) error {
 	w.Watch = struct {
 		Users []struct {
 			Name     string   "yaml:\"name\""
 			Sources  []string "yaml:\"sources\""
 			S3Target string   "yaml:\"s3target\""
 		} "yaml:\"users\""
-	}{} // reset values set by config
+	}{} // reset values set by config file
 
 	type results struct {
 		name     string
@@ -101,7 +131,7 @@ func (w *watchConfig) unmarshalWatchFlag(flagIn []string) (*watchConfig, error) 
 		// verify entry format
 		if len(entries) != 3 {
 			log.Fatal("FATAL[-] ")
-			return nil, errors.New("Ensure Name, paths, and s3target are set.")
+			return errors.New("Ensure Name, paths, and s3target are set.")
 		}
 		for _, p := range entries {
 			tokens := strings.Split(p, "=")
@@ -115,7 +145,7 @@ func (w *watchConfig) unmarshalWatchFlag(flagIn []string) (*watchConfig, error) 
 			case "s3target":
 				r.s3bucket = v
 			default:
-				return nil, errors.Errorf("Unknown entry: %s", p)
+				return errors.Errorf("Unknown entry: %s", p)
 			}
 		}
 
@@ -130,7 +160,7 @@ func (w *watchConfig) unmarshalWatchFlag(flagIn []string) (*watchConfig, error) 
 		})
 
 	}
-	return w, nil
+	return nil
 }
 
 func newS3Conn() *s3.S3 {

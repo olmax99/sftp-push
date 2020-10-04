@@ -40,29 +40,22 @@ All source directories are determined by:
       <defaults.userpath> + <watch.source.name> + <watch.source.paths>
 #+END_EXAMPLE
 
-=$HOME/.sftppush.yaml|sftppush/config.yaml= 
-#+BEGIN_SRC yaml 
+=./config.yaml= 
+#+BEGIN_SRC yaml
 defaults:
-  userpath:
+  userpath: # Set by default, can be overwritten here or with environment variable
 watch:
   source:
     - name: sftpuser1
       paths:
         - path/to/source/directory1
-        - path/to/source/directory2
+      # - path/to/source/directory2
       s3target: olmax-test-sftppush-126912
-    - name: sftpuser2
-      paths:
-        - path/to/source/directory1
-      s3target: olmax-test-sftppush-126912
-
-# LAUNCH WITH CUSTOM CONFIG FILE PATH
-$ vim config.yaml
-$ ./bin/sftppush-0.1.0-linux_amd64 --config config.yaml
-
-# OVERWRITE USER DIRECTORIES - by defaults set to /home
-SFTPPUSH_DEFAULTS_USERPATH="/home/my_test_dir" ./bin/sftppush-0.2.0-linux_amd64 -c config.yaml
-#+END_SRC 
+    # - name: sftpuser2
+    #   paths:
+    #     - path/to/source/directory1
+    #   s3target: olmax-test-sftppush-126912
+#+END_SRC
 
 ** 2. Run the event watcher on a single local directory
 If a config files is created there is no need to set the =--source= flags. Flags
@@ -71,13 +64,16 @@ will overwrite config file values.
 Running it should be as simple as:
 #+BEGIN_SRC bash  
 $ make build
-$ ./bin/sftppush-0.1.0-linux_amd64 help
-$ ./bin/sftppush-0.2.0-linux_amd64 -c config.yaml
+$ ./bin/sftppush-0.1.0-linux_amd64 help watch
+$ ./bin/sftppush-0.2.0-linux_amd64 --config config.yaml watch
 
-# EXAMPLE: Run without config with two sources
+# EXAMPLE 1: Run without config with two sources
 $ ./bin/sftppush-0.2.0-linux_amd64 watch \
-  --source='name=sftpuser1,"paths=device1/data,device2/data",s3target=olmax-test-sftppush-126912' \
-  --source='name=sftpuser2,"paths=device1/data,device2/data",s3target=olmax-test-sftppush-126912
+  --source="name=sftpuser1,paths=/device1/data /device2/data,s3target=olmax-test-sftppush-126912" \
+  --source="name=sftpuser2,paths=/device1/data /device2/data,s3target=olmax-test-sftppush-126912"
+
+# EXAMPLE 2: Run with a custom User directory - needs trailing '/'
+$ SFTPPUSH_DEFAULTS_USERPATH="/home/my_test_dir/" ./bin/sftppush-0.2.0-linux_amd64 -c config.yaml
 #+END_SRC 
 
 * Getting Started
