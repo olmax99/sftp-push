@@ -14,18 +14,34 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type fsWatch struct {
+	Config watchConfig
+	Ops    watchConfigOperations
+}
+
 type watchConfig struct {
 	Defaults struct {
 		Userpath string `yaml:"userpath"`
+		S3Target string `yaml:"s3target"`
 	} `yaml:"defaults"`
 	Watch struct {
 		Users []struct {
-			Name     string   `yaml:"name"`
-			Sources  []string `yaml:"sources"`
-			S3Target string   `yaml:"s3target"`
+			Name    string   `yaml:"name"`
+			Sources []string `yaml:"sources"`
 		} `yaml:"users"`
 	} `yaml:"watch"`
 }
+
+// watchConfigOperations contains all methods needed to process input to cmdWatch
+type watchConfigOperations interface {
+	createWatcher(eops event.FsEventOps, globalCfg *watchConfig) error
+	checkDir(path string) (bool, error)
+	unmarshalWatchFlag(flagIn []string, globalCfg *watchConfig) error
+	newS3Conn() *s3.S3
+}
+
+// watchConfigOps implements the watchConfigOperations interface
+type watchConfigOps struct{}
 
 var src []string // watch flag --source read as string
 
@@ -46,17 +62,18 @@ directory, which is listened on for file events.`),
 	// 	return fmt.Errorf("invalid color specified: %s", args[0])
 	// },
 	RunE: func(cmd *cobra.Command, args []string) error {
-		log.Printf("DEBUG[*] cmdWatch: %s", src)
+		w := watchConfigOps{}
 
 		if n := cmd.Flags().NFlag(); n < 1 {
 			return errors.New("Use either '--source' flag or '--config'.")
 		}
 
-		log.Printf("DEBUG[*] cfgWatch (from config): %q", &wC)
+		log.Printf("DEBUG[*] cfgWatch (from config): %q", &gCfg)
+		log.Printf("DEBUG[*] cmdWatch (from flag): %s", src)
 
 		// Will overwrite config values if both --config and --sources are set
 		if cmd.Flag("source").Changed {
-			if err := wC.unmarshalWatchFlag(src); err != nil {
+			if err := w.unmarshalWatchFlag(src, &gCfg); err != nil {
 				log.Fatalf("FATAL[*] decodeWatchFlag: %s", err)
 				return errors.Wrapf(err, "decodeWatchFlag: %q", src)
 			}
@@ -64,29 +81,8 @@ directory, which is listened on for file events.`),
 
 		// TODO Catch errors, implement a notification service
 		e := event.FsEventOps{}
-		conn := newS3Conn()
+		w.createWatcher(e, &gCfg)
 
-		log.Printf("DEBUG[*] targetDirs: %#v", &wC.Watch.Users[0])
-		// implements fsnotify.NewWatcher per user per source directory
-		// users
-		//  --> user1
-		//    --> path/to/dir1    <- New fsnotify.watcher
-		//    --> path/to/dir2    <- New fsnotify.watcher
-		srcD := &wC.Defaults.Userpath
-		arrU := &wC.Watch.Users
-		for _, u := range *arrU {
-			targetD := *srcD + u.Name // <defaults.userpath> + <watch.source.name>
-			targetB := &u.S3Target
-			for _, srcP := range u.Sources {
-				log.Printf("INFO[+] NewWatcher %q at %s on %s", conn.Endpoint, targetD+srcP, *targetB)
-				tDir := targetD + srcP
-				d, err := checkDir(tDir)
-				if err != nil || !d {
-					return errors.Wrapf(err, "e.NewWatcher: targetDir %s does not exist.", tDir)
-				}
-				e.NewWatcher(tDir, conn, targetB)
-			}
-		}
 		return nil
 	},
 }
@@ -97,25 +93,33 @@ func init() {
 	// cmdWatch.MarkFlagRequired("source")
 }
 
-func checkDir(p string) (bool, error) {
-	fi, err := os.Stat(p)
-	if err != nil {
-		return false, err
+func (w *watchConfigOps) createWatcher(e event.FsEventOps, g *watchConfig) error {
+	c := w.newS3Conn()
+
+	srcD := &g.Defaults.Userpath
+	trgB := &g.Defaults.S3Target
+	arrU := &g.Watch.Users
+	CheckedSrcDirs := make([]string, 0) // : value
+	for _, u := range *arrU {
+		targetD := *srcD + u.Name // <defaults.userpath> + <watch.source.name>
+		for _, srcP := range u.Sources {
+			tDir := targetD + srcP
+			d, err := w.checkDir(tDir)
+			if err != nil || !d {
+				return errors.Wrapf(err, "e.NewWatcher: targetDir %s does not exist.", tDir)
+			}
+			CheckedSrcDirs = append(CheckedSrcDirs, tDir)
+		}
 	}
-	switch mode := fi.Mode(); {
-	case mode.IsDir():
-	case mode.IsRegular():
-		return false, nil
-	}
-	return true, nil
+	e.NewWatcher(CheckedSrcDirs, c, trgB)
+	return nil
 }
 
-func (w *watchConfig) unmarshalWatchFlag(flagIn []string) error {
-	w.Watch = struct {
+func (w *watchConfigOps) unmarshalWatchFlag(flagIn []string, g *watchConfig) error {
+	g.Watch = struct {
 		Users []struct {
-			Name     string   "yaml:\"name\""
-			Sources  []string "yaml:\"sources\""
-			S3Target string   "yaml:\"s3target\""
+			Name    string   "yaml:\"name\""
+			Sources []string "yaml:\"sources\""
 		} "yaml:\"users\""
 	}{} // reset values set by config file
 
@@ -149,21 +153,19 @@ func (w *watchConfig) unmarshalWatchFlag(flagIn []string) error {
 			}
 		}
 
-		w.Watch.Users = append(w.Watch.Users, struct {
-			Name     string   "yaml:\"name\""
-			Sources  []string "yaml:\"sources\""
-			S3Target string   "yaml:\"s3target\""
+		g.Watch.Users = append(g.Watch.Users, struct {
+			Name    string   "yaml:\"name\""
+			Sources []string "yaml:\"sources\""
 		}{
-			Name:     r.name,
-			Sources:  r.paths,
-			S3Target: r.s3bucket,
+			Name:    r.name,
+			Sources: r.paths,
 		})
 
 	}
 	return nil
 }
 
-func newS3Conn() *s3.S3 {
+func (w *watchConfigOps) newS3Conn() *s3.S3 {
 	// TODO Use EC2 Instance Role
 
 	// ####
@@ -199,4 +201,17 @@ func newS3Conn() *s3.S3 {
 	svcs3 := s3.New(sess)
 	log.Printf("INFO[+] NewSess: %s", svcs3.ClientInfo.Endpoint)
 	return svcs3
+}
+
+func (w *watchConfigOps) checkDir(p string) (bool, error) {
+	fi, err := os.Stat(p)
+	if err != nil {
+		return false, err
+	}
+	switch mode := fi.Mode(); {
+	case mode.IsDir():
+	case mode.IsRegular():
+		return false, nil
+	}
+	return true, nil
 }

@@ -21,7 +21,7 @@ type FsEvent struct {
 type FsEventOperations interface {
 	EventSrc(path string) (string, error)
 	FsInfo(path string) (os.FileInfo, error)
-	NewWatcher(path string, conn *s3.S3, bucket *string)
+	NewWatcher(paths []string, conn *s3.S3, bucket *string)
 	FType(path string) (string, error)
 	Listen(watcher *fsnotify.Watcher, targetevents chan<- EventInfo)
 	Decompress(targetevents <-chan EventInfo, session *s3.S3, bucket *string, s3results chan<- *s3manager.UploadOutput)

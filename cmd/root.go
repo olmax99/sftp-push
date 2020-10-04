@@ -10,7 +10,7 @@ import (
 )
 
 var cfgFile string
-var wC watchConfig // global watchConfigs accessed by watch.go
+var gCfg watchConfig // global watchConfigs accessed by watch.go
 var v *viper.Viper
 
 // rootCmd represents the base command when called without any subcommands
@@ -44,7 +44,7 @@ func Execute() {
 func initConfig() {
 	v := config.ReadConfig("SFTPPUSH", cfgFile)
 
-	if err := v.Unmarshal(&wC); err != nil {
+	if err := v.Unmarshal(&gCfg); err != nil {
 		log.Printf("ERROR[-] initConfig: %s", err)
 	}
 

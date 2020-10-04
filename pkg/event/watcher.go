@@ -58,7 +58,7 @@ func (e *FsEvent) Info() (*EventInfo, error) {
 }
 
 // Implements fsnotify file event watcher on a target directory
-func (o *FsEventOps) NewWatcher(targetDir string, conn *s3.S3, targetBucket *string) {
+func (o *FsEventOps) NewWatcher(targetDirs []string, conn *s3.S3, targetBucket *string) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
@@ -83,10 +83,12 @@ func (o *FsEventOps) NewWatcher(targetDir string, conn *s3.S3, targetBucket *str
 		}
 	}()
 
-	// Add directory to *Watcher
-	err = watcher.Add(targetDir)
-	if err != nil {
-		log.Printf("ERROR[-] NewWatcher.Add %s", err)
+	// Add directories to *Watcher
+	for _, d := range targetDirs {
+		err = watcher.Add(d)
+		if err != nil {
+			log.Printf("ERROR[-] NewWatcher.Add %s, %s", d, err)
+		}
 	}
 
 	// Which token is released here? as there was none being send to new done channel..
