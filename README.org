@@ -36,7 +36,7 @@ there will be a separate =go watch process= spawned for each target directory, r
 _Recommended_: Create =config.yaml= in project root and set flag --=config=.
 
 #+BEGIN_EXAMPLE
-All source directories are determined by:
+All source directories for fsnotify are determined by:
       <defaults.userpath> + <watch.source.name> + <watch.source.paths>
 #+END_EXAMPLE
 
@@ -44,13 +44,13 @@ All source directories are determined by:
 #+BEGIN_SRC yaml
 defaults:
   userpath: # Set by default, can be overwritten here or with environment variable
+  s3target: olmax-test-sftppush-126912
 watch:
   source:
     - name: sftpuser1
       paths:
-        - path/to/source/directory1
-      # - path/to/source/directory2
-      s3target: olmax-test-sftppush-126912
+        - /path/to/source/directory1
+        - /path/to/source/directory2
     # - name: sftpuser2
     #   paths:
     #     - path/to/source/directory1

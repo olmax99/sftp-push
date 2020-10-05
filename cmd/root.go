@@ -15,15 +15,63 @@ var v *viper.Viper
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "generated code example",
-	Short: "A brief description of your application",
+	Use:   "sftppush watch",
+	Short: "Use the watch command to start the fsnotify file watcher.",
 	Long: strings.TrimSpace(`
-A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
- 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`),
+..:: WELCOME ::..
+
+Copyright Olaf Marangone - 1 Sep 2020
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+____
+
+The sftppush project provides a mini pipeline for 
+
+..:: upload --> file event --> decompress --> s3 archive ::..
+
+Most likely you want to run this project inside an Sftp server, that 
+receives a constant stream of data files.
+
+The sftppush project is intended to run in a Linux (Ubuntu/Debian) VM.
+It captures WRITE_CLOSE events for files on the file system based on a 
+single or multiple source directories.
+
+The watch --source flag can read single and multiple directories. 
+However, it is recommended to use a configuration file. In case of 
+multiple directory targets there will be a separate go watch process 
+spawned for each target directory, respectively.
+____
+
+Config:
+
+defaults:
+  userpath: # Set by default to /home/
+  s3target: test-bucket
+watch:
+  source:
+    - name: user1
+      paths:
+        - /path/to/source/directory1
+        - /path/to/source/directory2
+
+Examples:
+
+SFTPPUSH_DEFAULTS_USERPATH=/my/user/dir/ sftppush --config config.yaml watch
+
+sftppush watch \
+  --source="name=user1,paths=/device1/data /device2/data,s3target=test-bucket" \
+  --source="name=user2,paths=/device1/data /device2/data,s3target=test-bucket"
+`),
 	// Uncomment the following line if your bare application
 	// has an action associated with it
 	// The action can also be to just load the initConfig

@@ -14,11 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type fsWatch struct {
-	Config watchConfig
-	Ops    watchConfigOperations
-}
-
+// watchConfig reflects the yaml config file parameters
 type watchConfig struct {
 	Defaults struct {
 		Userpath string `yaml:"userpath"`
@@ -50,8 +46,20 @@ var cmdWatch = &cobra.Command{
 	Use:   "watch",
 	Short: "Start the fsnotify file system event watcher",
 	Long: strings.TrimSpace(`
-Use the watch command with a --source flag to indicate the 
-directory, which is listened on for file events.`),
+The watch command starts the fsnotify file watcher, and triggers 
+event tasks based on WRITE_CLOSE signals.
+
+The --source flag is optional and can overwrite the arguments
+provided by a config file.
+
+Examples:
+
+SFTPPUSH_DEFAULTS_USERPATH=/my/user/dir/ sftppush --config config.yaml watch
+
+sftppush watch \
+  --source="name=user1,paths=/device1/data /device2/data,s3target=test-bucket" \
+  --source="name=user2,paths=/device1/data /device2/data,s3target=test-bucket"
+`),
 	// Args: func(cmd *cobra.Command, args []string) error {
 	// 	if len(args) < 1 {
 	// 		return errors.New("requires a color argument")
