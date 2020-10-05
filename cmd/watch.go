@@ -17,8 +17,10 @@ import (
 // watchConfig reflects the yaml config file parameters
 type watchConfig struct {
 	Defaults struct {
-		Userpath string `yaml:"userpath"`
-		S3Target string `yaml:"s3target"`
+		Userpath   string `yaml:"userpath"`
+		S3Target   string `yaml:"s3target"`
+		Awsprofile string `yaml:"awsprofile"`
+		Awsregion  string `yaml:"awsregion"`
 	} `yaml:"defaults"`
 	Watch struct {
 		Users []struct {
@@ -33,7 +35,7 @@ type watchConfigOperations interface {
 	createWatcher(eops event.FsEventOps, globalCfg *watchConfig) error
 	checkDir(path string) (bool, error)
 	unmarshalWatchFlag(flagIn []string, globalCfg *watchConfig) error
-	newS3Conn() *s3.S3
+	newS3Conn(profile *string, region *string) *s3.S3
 }
 
 // watchConfigOps implements the watchConfigOperations interface
@@ -41,7 +43,7 @@ type watchConfigOps struct{}
 
 var src []string // watch flag --source read as string
 
-// versionCmd represents the version command
+// cmdWatch represents the watch command
 var cmdWatch = &cobra.Command{
 	Use:   "watch",
 	Short: "Start the fsnotify file system event watcher",
@@ -56,9 +58,9 @@ Examples:
 
 SFTPPUSH_DEFAULTS_USERPATH=/my/user/dir/ sftppush --config config.yaml watch
 
-sftppush watch \
-  --source="name=user1,paths=/device1/data /device2/data,s3target=test-bucket" \
-  --source="name=user2,paths=/device1/data /device2/data,s3target=test-bucket"
+SFTPPUSH_DEFAULTS_AWSPROFILE=my-profile sftppush watch \
+  --source="name=user1,paths=/device1/data /device2/data" \
+  --source="name=user2,paths=/device1/data /device2/data"
 `),
 	// Args: func(cmd *cobra.Command, args []string) error {
 	// 	if len(args) < 1 {
@@ -82,14 +84,16 @@ sftppush watch \
 		// Will overwrite config values if both --config and --sources are set
 		if cmd.Flag("source").Changed {
 			if err := w.unmarshalWatchFlag(src, &gCfg); err != nil {
-				log.Fatalf("FATAL[*] decodeWatchFlag: %s", err)
+				// log.Fatalf("FATAL[*] decodeWatchFlag: %s", err)
 				return errors.Wrapf(err, "decodeWatchFlag: %q", src)
 			}
 		}
 
 		// TODO Catch errors, implement a notification service
 		e := event.FsEventOps{}
-		w.createWatcher(e, &gCfg)
+		if err := w.createWatcher(e, &gCfg); err != nil {
+			return errors.Wrap(err, "createWatcher")
+		}
 
 		return nil
 	},
@@ -102,7 +106,10 @@ func init() {
 }
 
 func (w *watchConfigOps) createWatcher(e event.FsEventOps, g *watchConfig) error {
-	c := w.newS3Conn()
+	id := g.Defaults.Awsprofile
+	reg := g.Defaults.Awsregion
+	//log.Printf("DEBUG[*] createWatcher, Region: %s", &reg)
+	c := w.newS3Conn(&id, &reg)
 
 	srcD := &g.Defaults.Userpath
 	trgB := &g.Defaults.S3Target
@@ -126,24 +133,22 @@ func (w *watchConfigOps) createWatcher(e event.FsEventOps, g *watchConfig) error
 func (w *watchConfigOps) unmarshalWatchFlag(flagIn []string, g *watchConfig) error {
 	g.Watch = struct {
 		Users []struct {
-			Name    string   "yaml:\"name\""
-			Sources []string "yaml:\"sources\""
+			Name    string   `yaml:"name"`
+			Sources []string `yaml:"sources"`
 		} "yaml:\"users\""
 	}{} // reset values set by config file
 
 	type results struct {
-		name     string
-		paths    []string
-		s3bucket string
+		name  string
+		paths []string
 	}
 
 	for _, entries := range flagIn {
 		r := results{}
 		entries := strings.Split(entries, ",")
 		// verify entry format
-		if len(entries) != 3 {
-			log.Fatal("FATAL[-] ")
-			return errors.New("Ensure Name, paths, and s3target are set.")
+		if len(entries) != 2 {
+			return errors.New("Ensure name, and paths are set. Run 'sftppush help'.")
 		}
 		for _, p := range entries {
 			tokens := strings.Split(p, "=")
@@ -154,16 +159,14 @@ func (w *watchConfigOps) unmarshalWatchFlag(flagIn []string, g *watchConfig) err
 				r.name = v
 			case "paths":
 				r.paths = strings.Fields(v)
-			case "s3target":
-				r.s3bucket = v
 			default:
 				return errors.Errorf("Unknown entry: %s", p)
 			}
 		}
 
 		g.Watch.Users = append(g.Watch.Users, struct {
-			Name    string   "yaml:\"name\""
-			Sources []string "yaml:\"sources\""
+			Name    string   `yaml:"name"`
+			Sources []string `yaml:"sources"`
 		}{
 			Name:    r.name,
 			Sources: r.paths,
@@ -173,7 +176,7 @@ func (w *watchConfigOps) unmarshalWatchFlag(flagIn []string, g *watchConfig) err
 	return nil
 }
 
-func (w *watchConfigOps) newS3Conn() *s3.S3 {
+func (w *watchConfigOps) newS3Conn(p *string, r *string) *s3.S3 {
 	// TODO Use EC2 Instance Role
 
 	// ####
@@ -193,10 +196,12 @@ func (w *watchConfigOps) newS3Conn() *s3.S3 {
 	// from assumed role.
 	//svc := s3.New(sess, &aws.Config{Credentials: creds})/
 
-	// Only for testing
+	profile := *p
+	region := *r
+	log.Printf("DEBUG[*] newS3Conn{Region: %s}", region)
 	sess, err := session.NewSession(&aws.Config{
-		Region:      aws.String("eu-central-1"),
-		Credentials: credentials.NewSharedCredentials("", "olmax"),
+		Region:      aws.String(region),
+		Credentials: credentials.NewSharedCredentials("", profile),
 	})
 	if err != nil {
 		log.Fatalf("FATAL[-] cmdWatch, NewSession: %s\n", err)

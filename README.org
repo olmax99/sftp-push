@@ -45,6 +45,8 @@ All source directories for fsnotify are determined by:
 defaults:
   userpath: # Set by default, can be overwritten here or with environment variable
   s3target: olmax-test-sftppush-126912
+  awsprofile: ***
+  awsregion: ***
 watch:
   source:
     - name: sftpuser1
@@ -68,9 +70,10 @@ $ ./bin/sftppush-0.1.0-linux_amd64 help watch
 $ ./bin/sftppush-0.2.0-linux_amd64 --config config.yaml watch
 
 # EXAMPLE 1: Run without config with two sources
-$ ./bin/sftppush-0.2.0-linux_amd64 watch \
-  --source="name=sftpuser1,paths=/device1/data /device2/data,s3target=olmax-test-sftppush-126912" \
-  --source="name=sftpuser2,paths=/device1/data /device2/data,s3target=olmax-test-sftppush-126912"
+$ SFTPPUSH_DEFAULTS_S3TARGET=*** SFTPPUSH_DEFAULTS_AWSPROFILE=*** \
+  ./bin/sftppush-0.2.0-linux_amd64 watch \
+  --source="name=sftpuser1,paths=/device1/data /device2/data" \
+  --source="name=sftpuser2,paths=/device1/data /device2/data"
 
 # EXAMPLE 2: Run with a custom User directory - needs trailing '/'
 $ SFTPPUSH_DEFAULTS_USERPATH="/home/my_test_dir/" ./bin/sftppush-0.2.0-linux_amd64 -c config.yaml

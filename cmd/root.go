@@ -57,6 +57,8 @@ Config:
 defaults:
   userpath: # Set by default to /home/
   s3target: test-bucket
+  awsprofile: my-profile
+  awsregion: my-region
 watch:
   source:
     - name: user1
@@ -68,9 +70,9 @@ Examples:
 
 SFTPPUSH_DEFAULTS_USERPATH=/my/user/dir/ sftppush --config config.yaml watch
 
-sftppush watch \
-  --source="name=user1,paths=/device1/data /device2/data,s3target=test-bucket" \
-  --source="name=user2,paths=/device1/data /device2/data,s3target=test-bucket"
+SFTPPUSH_DEFAULTS_AWSPROFILE=my-profile sftppush watch \
+  --source="name=user1,paths=/device1/data /device2/data" \
+  --source="name=user2,paths=/device1/data /device2/data"
 `),
 	// Uncomment the following line if your bare application
 	// has an action associated with it
@@ -96,7 +98,9 @@ func initConfig() {
 		log.Printf("ERROR[-] initConfig: %s", err)
 	}
 
-	log.Printf("DEBUG[*] initConfig: %s", v.GetString("defaults.userpath"))
+	log.Printf("DEBUG[*] initConfig, gCfg: %#v", &gCfg)
+	log.Printf("DEBUG[*] initConfig, region: %s", v.GetString("defaults.awsregion"))
+	log.Printf("DEBUG[*] initConfig, region: %s", v.GetString("defaults.awsprofile"))
 	//log.Printf("DEBUG[+] Unmarshal: %#v", wC)
 }
 

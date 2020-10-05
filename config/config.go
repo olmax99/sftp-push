@@ -39,10 +39,10 @@ func ReadConfig(appName string, cfgFile string) *viper.Viper {
 
 	// Read config file and not found action
 	if err := v.ReadInConfig(); err == nil {
-		log.Printf("Using config file: %s\n", v.ConfigFileUsed())
+		log.Printf("INFO[+] Using config file: %s\n", v.ConfigFileUsed())
 
 	} else {
-		log.Println(err)
+		log.Printf("ERROR[-] %s", err)
 	}
 
 	// Use if existing config exists
