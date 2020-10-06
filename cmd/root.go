@@ -10,7 +10,7 @@ import (
 )
 
 var cfgFile string
-var gCfg watchConfig // global watchConfigs accessed by watch.go
+var gCfg watchConfig // global watchConfig accessed by watch.go and event/watcher.go
 var v *viper.Viper
 
 // rootCmd represents the base command when called without any subcommands
@@ -99,9 +99,8 @@ func initConfig() {
 	}
 
 	log.Printf("DEBUG[*] initConfig, gCfg: %#v", &gCfg)
-	log.Printf("DEBUG[*] initConfig, region: %s", v.GetString("defaults.awsregion"))
-	log.Printf("DEBUG[*] initConfig, region: %s", v.GetString("defaults.awsprofile"))
-	//log.Printf("DEBUG[+] Unmarshal: %#v", wC)
+	// log.Printf("DEBUG[*] initConfig, region: %s", v.GetString("defaults.awsregion"))
+	// log.Printf("DEBUG[*] initConfig, profile: %s", v.GetString("defaults.awsprofile"))
 }
 
 func init() {

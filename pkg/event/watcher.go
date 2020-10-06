@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -13,7 +14,32 @@ import (
 	"github.com/spf13/afero"
 )
 
-// returns the absolute source path of the triggered file event
+// reduceEventPath returns the absolute Event path reduced by the gCfg userpath
+func (o *FsEventOps) reduceEventPath(evp string, cfgp string) (string, error) {
+	eventPath := strings.Split(evp, "/")
+	eventPathDepth := len(eventPath)
+	reducedPath := make([]string, 0)
+
+	for i := 0; i < eventPathDepth; i++ {
+		dEventPath := eventPath[:len(eventPath)-i]
+		evPath := strings.Join(dEventPath, "/")
+		b, err := path.Match(cfgp, evPath+"/")
+		if err != nil {
+			log.Printf("ERROR[-] Derive relative event path, %s", err)
+			return "", errors.Wrapf(err, "Derive relative event path: %s != %s", evp, cfgp)
+		}
+		if b {
+			break
+		}
+		reducedPath = append([]string{eventPath[len(dEventPath)-1]}, reducedPath...)
+	}
+	res := strings.Join(reducedPath, "/")
+	res = strings.TrimSuffix(res, ".gzip")
+	res = strings.TrimSuffix(res, ".gz")
+	return res, nil
+}
+
+//  EventSrc returns the absolute source path of the triggered file event
 func (o *FsEventOps) EventSrc(evPath string) (string, error) {
 	if path.IsAbs(evPath) {
 		return evPath, nil
@@ -42,9 +68,9 @@ func (e *FsEvent) Info() (*EventInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &EventInfo{
 		Event{
-			RelLoc: e.Event.Name,
 			AbsLoc: path,
 			Op:     e.Event.Op.String(),
 		},
@@ -58,7 +84,7 @@ func (e *FsEvent) Info() (*EventInfo, error) {
 }
 
 // Implements fsnotify file event watcher on a target directory
-func (o *FsEventOps) NewWatcher(targetDirs []string, conn *s3.S3, targetBucket *string) {
+func (o *FsEventOps) NewWatcher(targetDirs []string, conn *s3.S3, targetBucket *string, apath *string) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Fatal(err)
@@ -74,7 +100,7 @@ func (o *FsEventOps) NewWatcher(targetDirs []string, conn *s3.S3, targetBucket *
 	results := make(chan *s3manager.UploadOutput)
 
 	go o.Listen(watcher, targetevent) // fsnotify event implementation
-	go o.Decompress(targetevent, conn, targetBucket, results)
+	go o.Decompress(targetevent, conn, targetBucket, results, apath)
 
 	// Wait for all results in the background
 	go func() {

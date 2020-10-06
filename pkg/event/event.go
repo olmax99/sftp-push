@@ -21,11 +21,12 @@ type FsEvent struct {
 type FsEventOperations interface {
 	EventSrc(path string) (string, error)
 	FsInfo(path string) (os.FileInfo, error)
-	NewWatcher(paths []string, conn *s3.S3, bucket *string)
+	NewWatcher(paths []string, conn *s3.S3, bucket *string, userpath *string)
 	FType(path string) (string, error)
 	Listen(watcher *fsnotify.Watcher, targetevents chan<- EventInfo)
-	Decompress(targetevents <-chan EventInfo, session *s3.S3, bucket *string, s3results chan<- *s3manager.UploadOutput)
-	PushS3(bytes io.Reader, sess *s3.S3, s3bucket *string, s3key *string, results chan<- *s3manager.UploadOutput, wg *sync.WaitGroup, einfo *EventInfo)
+	Decompress(targetevents <-chan EventInfo, session *s3.S3, bucket *string, s3results chan<- *s3manager.UploadOutput, eventpath *string)
+	PushS3(bytes io.Reader, sess *s3.S3, s3bucket *string, s3key string, results chan<- *s3manager.UploadOutput, wg *sync.WaitGroup, einfo *EventInfo)
+	reduceEventPath(p string, cfgp string) (string, error)
 }
 
 // Implements the FsEventOperations interface
@@ -39,7 +40,6 @@ type EventInfo struct {
 
 // Implements child of parent EventInfo
 type Event struct {
-	RelLoc string `json:"relloc"`
 	AbsLoc string `json:"absloc"`
 	Op     string `json:"op"`
 }

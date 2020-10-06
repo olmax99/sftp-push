@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -24,11 +23,10 @@ func (o FsEventOps) Remove(e EventInfo, wg *sync.WaitGroup) {
 	if err := os.Remove(e.Event.AbsLoc); err != nil {
 		log.Printf("ERROR[-] Job-2: Remove %s", err)
 	}
-	log.Printf("INFO[-] Job-2: Remove %s", e.Event.RelLoc)
 }
 
 // PushS3 uploads the source event file byte stream to S3 and removes the file
-func (o FsEventOps) PushS3(in io.Reader, c *s3.S3, s3t *string, obj *string, out chan<- *s3manager.UploadOutput, wg *sync.WaitGroup, ei *EventInfo) {
+func (o FsEventOps) PushS3(in io.Reader, c *s3.S3, s3t *string, obj string, out chan<- *s3manager.UploadOutput, wg *sync.WaitGroup, ei *EventInfo) {
 	// defer wg.Done()
 	uploader := s3manager.NewUploaderWithClient(c, func(u *s3manager.Uploader) {
 		u.PartSize = 64 * 1024 * 1024 // 64MB per part
@@ -36,7 +34,7 @@ func (o FsEventOps) PushS3(in io.Reader, c *s3.S3, s3t *string, obj *string, out
 	upl := s3manager.UploadInput{
 		Body:   in,
 		Bucket: s3t,
-		Key:    obj,
+		Key:    &obj,
 	}
 	r, err := uploader.Upload(&upl)
 	if err != nil {
@@ -73,13 +71,14 @@ func (o FsEventOps) FType(epath string) (string, error) {
 }
 
 // Decompress detects the file type and sends the decompressed byte stream to the PushS3 job
-func (o *FsEventOps) Decompress(in <-chan EventInfo, s3client *s3.S3, s3bucket *string, out chan<- *s3manager.UploadOutput) {
+func (o *FsEventOps) Decompress(in <-chan EventInfo, s3client *s3.S3, s3bucket *string, out chan<- *s3manager.UploadOutput, apath *string) {
 	var wg sync.WaitGroup
 	for e := range in {
 		wg.Add(1)
 
-		log.Printf("DEBUG[*] Job-1: Decompress start ..\n")
 		p := e.Event.AbsLoc
+		cfgp := *apath
+
 		ft, err := o.FType(p)
 		if err != nil {
 			// TODO forward to main err chan
@@ -99,11 +98,13 @@ func (o *FsEventOps) Decompress(in <-chan EventInfo, s3client *s3.S3, s3bucket *
 			if err != nil {
 				log.Printf("WARNING[-] Job-1: gzip.NewReader, %s\n", err)
 			}
-			// Adjust suffix
-			var k string
-			k = strings.TrimSuffix(e.Event.RelLoc, ".gzip")
-			k = strings.TrimSuffix(e.Event.RelLoc, ".gz")
-			go o.PushS3(gz, s3client, s3bucket, &k, out, &wg, &e)
+
+			key, err := o.reduceEventPath(p, cfgp)
+			if err != nil {
+				log.Printf("ERROR[*] Job-1: %s", err)
+			}
+
+			go o.PushS3(gz, s3client, s3bucket, key, out, &wg, &e)
 		case "application/zip":
 			log.Printf("DEBUG[*] Job-1: fT %s, %s\n", ft, filepath.Base(p))
 		default:

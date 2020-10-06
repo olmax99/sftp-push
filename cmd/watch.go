@@ -108,12 +108,12 @@ func init() {
 func (w *watchConfigOps) createWatcher(e event.FsEventOps, g *watchConfig) error {
 	id := g.Defaults.Awsprofile
 	reg := g.Defaults.Awsregion
-	//log.Printf("DEBUG[*] createWatcher, Region: %s", &reg)
 	c := w.newS3Conn(&id, &reg)
 
 	srcD := &g.Defaults.Userpath
 	trgB := &g.Defaults.S3Target
 	arrU := &g.Watch.Users
+
 	CheckedSrcDirs := make([]string, 0) // : value
 	for _, u := range *arrU {
 		targetD := *srcD + u.Name // <defaults.userpath> + <watch.source.name>
@@ -123,10 +123,11 @@ func (w *watchConfigOps) createWatcher(e event.FsEventOps, g *watchConfig) error
 			if err != nil || !d {
 				return errors.Wrapf(err, "e.NewWatcher: targetDir %s does not exist.", tDir)
 			}
+			// log.Printf("DEBUG[*] createWatcher,checkDir: %s", tDir)
 			CheckedSrcDirs = append(CheckedSrcDirs, tDir)
 		}
 	}
-	e.NewWatcher(CheckedSrcDirs, c, trgB)
+	e.NewWatcher(CheckedSrcDirs, c, trgB, srcD)
 	return nil
 }
 
@@ -198,7 +199,6 @@ func (w *watchConfigOps) newS3Conn(p *string, r *string) *s3.S3 {
 
 	profile := *p
 	region := *r
-	log.Printf("DEBUG[*] newS3Conn{Region: %s}", region)
 	sess, err := session.NewSession(&aws.Config{
 		Region:      aws.String(region),
 		Credentials: credentials.NewSharedCredentials("", profile),

@@ -15,14 +15,18 @@ seems to be more fit for production use cases.
 - Go 1.15.x
 
 * Design
+#+CAPTION: solution concept
+#+attr_html: :width 200px
+[[file:images/sftppush_solution_concept.png][file:./images/sftppush_solution_concept.png]]
+
 #+CAPTION: concurrency
 #+attr_html: :width 200px
-[[file:images/helm-plus-metabase.png][file:./images/sftppush_concurrency_design.png]]
+[[file:images/sftppush_concurrency_design.png][file:./images/sftppush_concurrency_design.png]]
 
-Most likely you want to run this project inside an Sftp server, that receives a
+Most likely you want to run this project inside an Sftp server, which receives a
 constant stream of data files.
 
-The **sftppush** project is intended to run in a Linux (Ubuntu/Debian) VM. It
+The *sftppush* project is intended to run in a Linux (Ubuntu/Debian) VM. It
 captures WRITE_CLOSE events for files on the file system based on a single or
 multiple source directories.
 
