@@ -103,3 +103,9 @@ $ [DOCKER=1] make test
 - One way of doing it is to fork the original [[https://github.com/fsnotify/fsnotify][fsnotify]], and accepting the
   changes made on the [[https://github.com/fsnotify/fsnotify/pull/313][respective PR]]. 
 
+* Useful Commands
+#+BEGIN_SRC 
+$ aws s3api --profile *** list-objects --bucket *** --query 'Contents[?contains(Key,``)].{Key: Key, Size: Size}' --output table | wc -l
+
+
+#+END_SRC

@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/fsnotify/fsnotify"
 )
@@ -19,6 +18,7 @@ import (
 
 // Remove waits for S3 upload to finish and removes event file
 func (o FsEventOps) Remove(e EventInfo, wg *sync.WaitGroup) {
+	// TODO This seems to conflict - need to be outside of WaitGroup()
 	defer wg.Done()
 	if err := os.Remove(e.Event.AbsLoc); err != nil {
 		log.Printf("ERROR[-] Job-2: Remove %s", err)
@@ -26,23 +26,30 @@ func (o FsEventOps) Remove(e EventInfo, wg *sync.WaitGroup) {
 }
 
 // PushS3 uploads the source event file byte stream to S3 and removes the file
-func (o FsEventOps) PushS3(in io.Reader, c *s3.S3, s3t *string, obj string, out chan<- *s3manager.UploadOutput, wg *sync.WaitGroup, ei *EventInfo) {
+func (o FsEventOps) PushS3(in io.ReadCloser, pi EventPushInfo, wg *sync.WaitGroup, ei *EventInfo) {
 	// defer wg.Done()
-	uploader := s3manager.NewUploaderWithClient(c, func(u *s3manager.Uploader) {
+	uploader := s3manager.NewUploaderWithClient(pi.session, func(u *s3manager.Uploader) {
 		u.PartSize = 64 * 1024 * 1024 // 64MB per part
 	})
 	upl := s3manager.UploadInput{
 		Body:   in,
-		Bucket: s3t,
-		Key:    &obj,
+		Bucket: &pi.bucket,
+		Key:    &pi.key,
 	}
+
 	r, err := uploader.Upload(&upl)
 	if err != nil {
 		// TODO send upload error to RETRY
 		log.Printf("WARNING[-] Job-2: PushS3 %s", err)
 	} else {
-		out <- r
-		o.Remove(*ei, wg)
+		pi.results <- r
+		// TODO This will only work for the first few files - refine concurrency design
+		go o.Remove(*ei, wg)
+
+	}
+
+	if err := in.Close(); err != nil {
+		log.Printf("WARNING[-] Job-2: PushS3 Close  %s", err)
 	}
 }
 
@@ -50,61 +57,60 @@ func (o FsEventOps) PushS3(in io.Reader, c *s3.S3, s3t *string, obj string, out 
 
 //!+job-1
 
+type ReadCloseFile struct {
+	io.Reader
+	io.Closer
+}
+
 // FType detects and returns the file type of the event location file object
-func (o FsEventOps) FType(epath string) (string, error) {
+func (o FsEventOps) FType(epath string) (string, *os.File) {
 	f, err := os.Open(epath)
 	if err != nil {
 		log.Printf("WARNING[-] Job-1: os.Open %s, %s\n", filepath.Base(epath), err)
-		return "", err
 	}
-	defer f.Close()
 
-	// 512 max data used for file type detection
 	buf := make([]byte, 512)
 	if _, err := f.Read(buf); err != nil {
-		log.Printf("WARNING[-] Job-1: f.Read %s, %s\n", filepath.Base(epath), err)
-		return "", err
+		log.Printf("ERROR[-] Job-1: File Read %s, %s\n", filepath.Base(epath), err)
 	}
+	f.Seek(0, io.SeekStart)
 
 	fT := http.DetectContentType(buf)
-	return fT, nil
+	return fT, f
 }
 
 // Decompress detects the file type and sends the decompressed byte stream to the PushS3 job
-func (o *FsEventOps) Decompress(in <-chan EventInfo, s3client *s3.S3, s3bucket *string, out chan<- *s3manager.UploadOutput, apath *string) {
+func (o *FsEventOps) Decompress(in <-chan EventInfo, pi EventPushInfo, apath *string) {
 	var wg sync.WaitGroup
 	for e := range in {
-		wg.Add(1)
+		newPi := &pi
 
 		p := e.Event.AbsLoc
 		cfgp := *apath
 
-		ft, err := o.FType(p)
-		if err != nil {
-			// TODO forward to main err chan
-			log.Fatalf("ERROR[-] Job-1: fType %s %s", ft, err)
-		}
-
-		f, err := os.Open(p)
-		if err != nil {
-			log.Printf("WARNING[-] Job-1: os.Open %s, %s\n", filepath.Base(p), err)
-		}
-		defer f.Close()
-
+		ft, f := o.FType(p)
 		switch ft {
 		case "application/x-gzip":
 			log.Printf("DEBUG[*] Job-1: fT %s, %s\n", ft, filepath.Base(p))
-			gz, err := gzip.NewReader(f)
+			// implement io.Closer for gzip
+			gz, err := func(i *os.File) (io.ReadCloser, error) {
+				g, err := gzip.NewReader(i)
+				if err != nil {
+					return nil, err
+				}
+				return &ReadCloseFile{g, i}, nil
+			}(f)
 			if err != nil {
-				log.Printf("WARNING[-] Job-1: gzip.NewReader, %s\n", err)
+				log.Printf("ERROR[-] Job-1: gzip.NewReader, %s\n", err)
 			}
 
-			key, err := o.reduceEventPath(p, cfgp)
+			newPi.key, err = o.reduceEventPath(p, cfgp)
 			if err != nil {
 				log.Printf("ERROR[*] Job-1: %s", err)
 			}
 
-			go o.PushS3(gz, s3client, s3bucket, key, out, &wg, &e)
+			wg.Add(1)
+			go o.PushS3(gz, *newPi, &wg, &e)
 		case "application/zip":
 			log.Printf("DEBUG[*] Job-1: fT %s, %s\n", ft, filepath.Base(p))
 		default:

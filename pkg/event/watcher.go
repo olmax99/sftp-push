@@ -99,8 +99,15 @@ func (o *FsEventOps) NewWatcher(targetDirs []string, conn *s3.S3, targetBucket *
 	targetevent := make(chan EventInfo)
 	results := make(chan *s3manager.UploadOutput)
 
+	epi := EventPushInfo{
+		session: conn,
+		bucket:  *targetBucket,
+		key:     "",
+		results: results,
+	}
+
 	go o.Listen(watcher, targetevent) // fsnotify event implementation
-	go o.Decompress(targetevent, conn, targetBucket, results, apath)
+	go o.Decompress(targetevent, epi, apath)
 
 	// Wait for all results in the background
 	go func() {

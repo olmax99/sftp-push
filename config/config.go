@@ -8,8 +8,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-var defaultConfig *viper.Viper
-
 func ReadConfig(appName string, cfgFile string) *viper.Viper {
 	v := viper.New()
 	// Defines Prefix for ENV variables and parses them by default

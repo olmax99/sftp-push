@@ -61,12 +61,11 @@ func Test_info(t *testing.T) {
 
 	// create EXPECTED RELATIVE PATH fsnotify.Event
 	var eiabs event.EventInfo = event.EventInfo{
-		event.Event{
-			RelLoc: "",
+		Event: event.Event{
 			AbsLoc: "/tmp/c.txt",
 			Op:     "WRITE",
 		},
-		event.Meta{
+		Meta: event.Meta{
 			ModTime: modt.ModTime().Truncate(time.Millisecond),
 			Mode:    420,
 			Name:    "c.txt",

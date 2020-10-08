@@ -2,7 +2,7 @@
 # BUILD STAGE
 ####
 
-FROM golang:1.13.15-buster AS build-stage
+FROM golang:1.15.2-buster AS build-stage
 
 # ------ 1. label and Go-Path--------
 LABEL app="sftppush"
@@ -24,7 +24,7 @@ RUN make build-alpine
 # FINAL STAGE
 #### 
 
-FROM golang:1.13.15-buster
+FROM golang:1.15.2-buster
 
 RUN apt update && apt install -y \
     dumb-init \

@@ -31,12 +31,12 @@ type watchConfig struct {
 }
 
 // watchConfigOperations contains all methods needed to process input to cmdWatch
-type watchConfigOperations interface {
-	createWatcher(eops event.FsEventOps, globalCfg *watchConfig) error
-	checkDir(path string) (bool, error)
-	unmarshalWatchFlag(flagIn []string, globalCfg *watchConfig) error
-	newS3Conn(profile *string, region *string) *s3.S3
-}
+// type watchConfigOperations interface {
+// 	createWatcher(eops event.FsEventOps, globalCfg *watchConfig) error
+// 	checkDir(path string) (bool, error)
+// 	unmarshalWatchFlag(flagIn []string, globalCfg *watchConfig) error
+// 	newS3Conn(profile *string, region *string) *s3.S3
+// }
 
 // watchConfigOps implements the watchConfigOperations interface
 type watchConfigOps struct{}

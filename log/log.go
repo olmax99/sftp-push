@@ -1,10 +1,7 @@
 package log
 
 import (
-	"os"
-
 	"github.com/sirupsen/logrus"
-	"github.com/olmax99/sftppush/config"
 )
 
 // Logger defines a set of methods for writing application logs. Derived from and
@@ -38,40 +35,37 @@ type Logger interface {
 
 var defaultLogger *logrus.Logger
 
-func init() {
-	defaultLogger = newLogrusLogger(config.Config())
-}
-
+// func init() {
+// 	defaultLogger = newLogrusLogger(config.Config())
+// }
 
 // NewLogger returns a configured logrus instance
-func NewLogger(cfg config.Provider) *logrus.Logger {
-	return newLogrusLogger(cfg)
-}
+// func NewLogger(cfg config.Provider) *logrus.Logger {
+// 	return newLogrusLogger(cfg)
+// }
 
+// func newLogrusLogger(cfg config.Provider) *logrus.Logger {
 
+// 	l := logrus.New()
 
-func newLogrusLogger(cfg config.Provider) *logrus.Logger {
+// 	if cfg.GetBool("json_logs") {
+// 		l.Formatter = new(logrus.JSONFormatter)
+// 	}
+// 	l.Out = os.Stderr
 
-	l := logrus.New()
-	
-	if cfg.GetBool("json_logs") {
-		l.Formatter = new(logrus.JSONFormatter)
-	}
-	l.Out = os.Stderr
+// 	switch cfg.GetString("loglevel") {
+// 	case "debug":
+// 		l.Level = logrus.DebugLevel
+// 	case "warning":
+// 		l.Level = logrus.WarnLevel
+// 	case "info":
+// 		l.Level = logrus.InfoLevel
+// 	default:
+// 		l.Level = logrus.DebugLevel
+// 	}
 
-	switch cfg.GetString("loglevel") {
-	case "debug":
-		l.Level = logrus.DebugLevel
-	case "warning":
-		l.Level = logrus.WarnLevel
-	case "info":
-		l.Level = logrus.InfoLevel
-	default:
-		l.Level = logrus.DebugLevel
-	}
-	
-	return l
-}
+// 	return l
+// }
 
 // Fields is a map string interface to define fields in the structured log
 type Fields map[string]interface{}

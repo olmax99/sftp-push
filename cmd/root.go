@@ -6,12 +6,10 @@ import (
 
 	"github.com/olmax99/sftppush/config"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var cfgFile string
 var gCfg watchConfig // global watchConfig accessed by watch.go and event/watcher.go
-var v *viper.Viper
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -19,9 +17,6 @@ var rootCmd = &cobra.Command{
 	Short: "Use the watch command to start the fsnotify file watcher.",
 	Long: strings.TrimSpace(`
 ..:: WELCOME ::..
-
-Copyright Olaf Marangone - 1 Sep 2020
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at

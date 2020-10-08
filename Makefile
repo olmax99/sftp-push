@@ -60,6 +60,10 @@ push: tag
 clean:
 	@test ! -e bin/${BIN_NAME} || rm bin/${BIN_NAME}
 
+lint:
+        # using .golangci.sftppush.yaml config
+	@golangci-lint run -v
+
 test:
 ifeq ($(DOCKER),1)
 	$(info [*] packaging local image build ...)

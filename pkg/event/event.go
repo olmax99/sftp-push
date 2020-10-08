@@ -22,10 +22,10 @@ type FsEventOperations interface {
 	EventSrc(path string) (string, error)
 	FsInfo(path string) (os.FileInfo, error)
 	NewWatcher(paths []string, conn *s3.S3, bucket *string, userpath *string)
-	FType(path string) (string, error)
+	FType(path string) (string, *os.File)
 	Listen(watcher *fsnotify.Watcher, targetevents chan<- EventInfo)
-	Decompress(targetevents <-chan EventInfo, session *s3.S3, bucket *string, s3results chan<- *s3manager.UploadOutput, eventpath *string)
-	PushS3(bytes io.Reader, sess *s3.S3, s3bucket *string, s3key string, results chan<- *s3manager.UploadOutput, wg *sync.WaitGroup, einfo *EventInfo)
+	Decompress(targetevents <-chan EventInfo, pinfo EventPushInfo, epath *string)
+	PushS3(bytes io.ReadCloser, pinfo EventPushInfo, wg *sync.WaitGroup, einfo *EventInfo)
 	reduceEventPath(p string, cfgp string) (string, error)
 }
 
@@ -50,4 +50,11 @@ type Meta struct {
 	Mode    os.FileMode `json:"mode"`
 	Name    string      `json:"name"`
 	Size    int64       `json:"size"`
+}
+
+type EventPushInfo struct {
+	session *s3.S3
+	bucket  string
+	key     string
+	results chan<- *s3manager.UploadOutput
 }
