@@ -1,6 +1,7 @@
 package event
 
 import (
+	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"io"
@@ -26,7 +27,7 @@ func (o FsEventOps) Remove(e EventInfo, wg *sync.WaitGroup) {
 }
 
 // PushS3 uploads the source event file byte stream to S3 and removes the file
-func (o FsEventOps) PushS3(in io.ReadCloser, pi EventPushInfo, wg *sync.WaitGroup, ei *EventInfo) {
+func (o FsEventOps) PushS3(in io.Reader, pi EventPushInfo, wg *sync.WaitGroup, ei *EventInfo) {
 	// defer wg.Done()
 	uploader := s3manager.NewUploaderWithClient(pi.session, func(u *s3manager.Uploader) {
 		u.PartSize = 64 * 1024 * 1024 // 64MB per part
@@ -48,35 +49,35 @@ func (o FsEventOps) PushS3(in io.ReadCloser, pi EventPushInfo, wg *sync.WaitGrou
 
 	}
 
-	if err := in.Close(); err != nil {
-		log.Printf("WARNING[-] Job-2: PushS3 Close  %s", err)
-	}
 }
 
 //!-job-2
 
 //!+job-1
 
-type ReadCloseFile struct {
-	io.Reader
-	io.Closer
-}
+// type ReadCloseFile struct {
+// 	r io.Reader
+// 	c io.Closer
+// }
 
-// FType detects and returns the file type of the event location file object
-func (o FsEventOps) FType(epath string) (string, *os.File) {
+// FType detects and returns the file type along with the initial file io.Reader
+func (o *FsEventOps) FType(epath string) (string, *io.Reader) {
+	// f is an io.Reader
 	f, err := os.Open(epath)
 	if err != nil {
-		log.Printf("WARNING[-] Job-1: os.Open %s, %s\n", filepath.Base(epath), err)
+		log.Printf("WARNING[-] Job-1: Open %s, %s\n", filepath.Base(epath), err)
 	}
 
-	buf := make([]byte, 512)
+	buf := make([]byte, 32)
 	if _, err := f.Read(buf); err != nil {
 		log.Printf("ERROR[-] Job-1: File Read %s, %s\n", filepath.Base(epath), err)
 	}
-	f.Seek(0, io.SeekStart)
-
 	fT := http.DetectContentType(buf)
-	return fT, f
+
+	// glue those bytes back onto the reader
+	r := io.MultiReader(bytes.NewReader(buf), f)
+
+	return fT, &r
 }
 
 // Decompress detects the file type and sends the decompressed byte stream to the PushS3 job
@@ -88,18 +89,12 @@ func (o *FsEventOps) Decompress(in <-chan EventInfo, pi EventPushInfo, apath *st
 		p := e.Event.AbsLoc
 		cfgp := *apath
 
-		ft, f := o.FType(p)
+		ft, b := o.FType(p)
 		switch ft {
 		case "application/x-gzip":
 			log.Printf("DEBUG[*] Job-1: fT %s, %s\n", ft, filepath.Base(p))
 			// implement io.Closer for gzip
-			gz, err := func(i *os.File) (io.ReadCloser, error) {
-				g, err := gzip.NewReader(i)
-				if err != nil {
-					return nil, err
-				}
-				return &ReadCloseFile{g, i}, nil
-			}(f)
+			gz, err := gzip.NewReader(*b)
 			if err != nil {
 				log.Printf("ERROR[-] Job-1: gzip.NewReader, %s\n", err)
 			}
@@ -151,16 +146,18 @@ func (o *FsEventOps) Listen(w *fsnotify.Watcher, out chan<- EventInfo) {
 					log.Printf("WARNING[-] Job-0: Listen %s\n", err)
 				}
 
-				// -> Process file through decompress job-1
-				//     -> Process decompressed stream to job-2 S3 upload
-				out <- *ev // SEND needs no close as infinite amount of Events
-
-				// only for testing
-				einfo, err := json.Marshal(ev)
-				if err != nil {
-					log.Printf("ERROR[-] Job-0: Json, %s\n", err)
+				// 32 bytes needed for determining file type
+				if ev.Meta.Size >= int64(32) {
+					out <- *ev // SEND needs no close as infinite amount of Events
+				} else {
+					// only for testing
+					einfo, err := json.Marshal(ev)
+					if err != nil {
+						log.Printf("ERROR[-] Job-0: Json, %s\n", err)
+					}
+					log.Printf("DEBUG[*] Job-0: Unknown File Type, %v, eiT: %T\n", string(einfo), ev)
 				}
-				log.Printf("DEBUG[*] Job-0: %v, eiT: %T\n", string(einfo), ev)
+
 			}
 
 		case err, ok := <-w.Errors: // RECEIVE eventError

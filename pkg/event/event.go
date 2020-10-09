@@ -22,10 +22,10 @@ type FsEventOperations interface {
 	EventSrc(path string) (string, error)
 	FsInfo(path string) (os.FileInfo, error)
 	NewWatcher(paths []string, conn *s3.S3, bucket *string, userpath *string)
-	FType(path string) (string, *os.File)
+	FType(path string) (string, *io.Reader)
 	Listen(watcher *fsnotify.Watcher, targetevents chan<- EventInfo)
 	Decompress(targetevents <-chan EventInfo, pinfo EventPushInfo, epath *string)
-	PushS3(bytes io.ReadCloser, pinfo EventPushInfo, wg *sync.WaitGroup, einfo *EventInfo)
+	PushS3(bytes io.Reader, pinfo EventPushInfo, wg *sync.WaitGroup, einfo *EventInfo)
 	reduceEventPath(p string, cfgp string) (string, error)
 }
 
