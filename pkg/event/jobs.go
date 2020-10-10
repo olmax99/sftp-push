@@ -18,17 +18,17 @@ import (
 //!+job-2
 
 // Remove waits for S3 upload to finish and removes event file
-func (o FsEventOps) Remove(e EventInfo, wg *sync.WaitGroup) {
+func (o FsEventOps) Remove(e EventInfo) {
 	// TODO This seems to conflict - need to be outside of WaitGroup()
-	defer wg.Done()
+	// defer wg.Done()
 	if err := os.Remove(e.Event.AbsLoc); err != nil {
 		log.Printf("ERROR[-] Job-2: Remove %s", err)
 	}
 }
 
 // PushS3 uploads the source event file byte stream to S3 and removes the file
-func (o FsEventOps) PushS3(in io.Reader, pi EventPushInfo, wg *sync.WaitGroup, ei *EventInfo) {
-	// defer wg.Done()
+func (o FsEventOps) PushS3(in io.Reader, pi EventPushInfo, wg *sync.WaitGroup, ei EventInfo) {
+	defer wg.Done()
 	uploader := s3manager.NewUploaderWithClient(pi.session, func(u *s3manager.Uploader) {
 		u.PartSize = 64 * 1024 * 1024 // 64MB per part
 	})
@@ -43,9 +43,9 @@ func (o FsEventOps) PushS3(in io.Reader, pi EventPushInfo, wg *sync.WaitGroup, e
 		// TODO send upload error to RETRY
 		log.Printf("WARNING[-] Job-2: PushS3 %s", err)
 	} else {
-		pi.results <- r
+		pi.results <- &ResultInfo{response: r, eventInfo: ei}
 		// TODO This will only work for the first few files - refine concurrency design
-		go o.Remove(*ei, wg)
+		// go o.Remove(*ei, wg)
 
 	}
 
@@ -105,7 +105,7 @@ func (o *FsEventOps) Decompress(in <-chan EventInfo, pi EventPushInfo, apath *st
 			}
 
 			wg.Add(1)
-			go o.PushS3(gz, *newPi, &wg, &e)
+			go o.PushS3(gz, *newPi, &wg, e)
 		case "application/zip":
 			log.Printf("DEBUG[*] Job-1: fT %s, %s\n", ft, filepath.Base(p))
 		default:

@@ -25,8 +25,9 @@ type FsEventOperations interface {
 	FType(path string) (string, *io.Reader)
 	Listen(watcher *fsnotify.Watcher, targetevents chan<- EventInfo)
 	Decompress(targetevents <-chan EventInfo, pinfo EventPushInfo, epath *string)
-	PushS3(bytes io.Reader, pinfo EventPushInfo, wg *sync.WaitGroup, einfo *EventInfo)
+	PushS3(bytes io.Reader, pinfo EventPushInfo, wg *sync.WaitGroup, einfo EventInfo)
 	reduceEventPath(p string, cfgp string) (string, error)
+	Remove(event EventInfo)
 }
 
 // Implements the FsEventOperations interface
@@ -56,5 +57,10 @@ type EventPushInfo struct {
 	session *s3.S3
 	bucket  string
 	key     string
-	results chan<- *s3manager.UploadOutput
+	results chan<- *ResultInfo
+}
+
+type ResultInfo struct {
+	response  *s3manager.UploadOutput
+	eventInfo EventInfo
 }

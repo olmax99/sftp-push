@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/fsnotify/fsnotify"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
@@ -97,7 +96,7 @@ func (o *FsEventOps) NewWatcher(targetDirs []string, conn *s3.S3, targetBucket *
 	// fmt.Printf("%#v", watcher)
 	done := make(chan bool)
 	targetevent := make(chan EventInfo)
-	results := make(chan *s3manager.UploadOutput)
+	results := make(chan *ResultInfo)
 
 	epi := EventPushInfo{
 		session: conn,
@@ -112,7 +111,8 @@ func (o *FsEventOps) NewWatcher(targetDirs []string, conn *s3.S3, targetBucket *
 	// Wait for all results in the background
 	go func() {
 		for f := range results {
-			log.Printf("INFO[+] Results: %#v\n", f)
+			//log.Printf("INFO[+] Results: %#v\n", f)
+			go o.Remove(f.eventInfo)
 		}
 	}()
 
