@@ -12,21 +12,31 @@ import (
 	"github.com/spf13/afero"
 )
 
+func RemoveF(t *testing.T, p string, a afero.Fs) {
+	if err := a.Remove(p); err != nil {
+		t.Errorf("RemoveF, %s\n", err)
+	}
+}
+
 // Ensure that there is always an absolute path in the output of EventSrc
 func Test_EventSrc(t *testing.T) {
 	// Create Test files
 	// TODO Will only work with ENV 'TESTING' set
 	// appfs := afero.NewMemMapFs()
 	appfs := afero.NewOsFs()
-	afero.WriteFile(appfs, "/tmp/c.txt", []byte("file c"), 0644)
+	if err := afero.WriteFile(appfs, "/tmp/c.txt", []byte("file c"), 0644); err != nil {
+		t.Errorf("afero WriteFile, %s\n", err)
+	}
 	pwd, err := os.Getwd()
 	if err != nil {
 		t.Errorf("Failed test setup: os.Getwd .. %s", err)
 	}
-	afero.WriteFile(appfs, path.Join(pwd, "c.txt"), []byte("file c"), 0644)
+	if err := afero.WriteFile(appfs, path.Join(pwd, "c.txt"), []byte("file c"), 0644); err != nil {
+		t.Errorf("afero WriteFile, %s\n", err)
+	}
 
 	// cleanup only guaranteed for /tmp/*.* files
-	defer appfs.Remove(path.Join(pwd, "c.txt"))
+	defer RemoveF(t, path.Join(pwd, "c.txt"), appfs)
 
 	var Results = []struct {
 		in  string
@@ -50,7 +60,9 @@ func Test_EventSrc(t *testing.T) {
 
 func Test_info(t *testing.T) {
 	appfs := afero.NewOsFs()
-	afero.WriteFile(appfs, "/tmp/c.txt", []byte("file c"), 0644)
+	if err := afero.WriteFile(appfs, "/tmp/c.txt", []byte("file c"), 0644); err != nil {
+		t.Errorf("afero WriteFile, %s\n", err)
+	}
 	modt, _ := appfs.Stat("/tmp/c.txt")
 
 	// create INPUT RELATIVE PATH

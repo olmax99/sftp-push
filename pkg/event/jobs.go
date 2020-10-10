@@ -15,7 +15,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
-//!+job-2
+//!+job-3
 
 // Remove waits for S3 upload to finish and removes event file
 func (o FsEventOps) Remove(e EventInfo) {
@@ -25,6 +25,10 @@ func (o FsEventOps) Remove(e EventInfo) {
 		log.Printf("ERROR[-] Job-2: Remove %s", err)
 	}
 }
+
+//!-job-2
+
+//!+job-2
 
 // PushS3 uploads the source event file byte stream to S3 and removes the file
 func (o FsEventOps) PushS3(in io.Reader, pi EventPushInfo, wg *sync.WaitGroup, ei EventInfo) {
@@ -44,9 +48,6 @@ func (o FsEventOps) PushS3(in io.Reader, pi EventPushInfo, wg *sync.WaitGroup, e
 		log.Printf("WARNING[-] Job-2: PushS3 %s", err)
 	} else {
 		pi.results <- &ResultInfo{response: r, eventInfo: ei}
-		// TODO This will only work for the first few files - refine concurrency design
-		// go o.Remove(*ei, wg)
-
 	}
 
 }
@@ -55,14 +56,8 @@ func (o FsEventOps) PushS3(in io.Reader, pi EventPushInfo, wg *sync.WaitGroup, e
 
 //!+job-1
 
-// type ReadCloseFile struct {
-// 	r io.Reader
-// 	c io.Closer
-// }
-
 // FType detects and returns the file type along with the initial file io.Reader
 func (o *FsEventOps) FType(epath string) (string, *io.Reader) {
-	// f is an io.Reader
 	f, err := os.Open(epath)
 	if err != nil {
 		log.Printf("WARNING[-] Job-1: Open %s, %s\n", filepath.Base(epath), err)
@@ -93,7 +88,6 @@ func (o *FsEventOps) Decompress(in <-chan EventInfo, pi EventPushInfo, apath *st
 		switch ft {
 		case "application/x-gzip":
 			log.Printf("DEBUG[*] Job-1: fT %s, %s\n", ft, filepath.Base(p))
-			// implement io.Closer for gzip
 			gz, err := gzip.NewReader(*b)
 			if err != nil {
 				log.Printf("ERROR[-] Job-1: gzip.NewReader, %s\n", err)

@@ -107,5 +107,6 @@ $ [DOCKER=1] make test
 #+BEGIN_SRC 
 $ aws s3api --profile *** list-objects --bucket *** --query 'Contents[?contains(Key,``)].{Key: Key, Size: Size}' --output table | wc -l
 
-
+# install golangci-lint
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.31.0
 #+END_SRC
