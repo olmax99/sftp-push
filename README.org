@@ -4,7 +4,7 @@
 
 [[https://github.com/olmax99/sftppush/workflows/Go/badge.svg][https://github.com/olmax99/sftppush/workflows/Go/badge.svg]]
 
-The *sftppush* is a mini pipeline for =upload > decompress > s3 archive=.
+The *sftppush* is a mini pipeline for =file write-close event > decompress > s3 archive=.
 
 Initially, it was intended to replace i.e. low-compute serverless functions that
 would simply push files from the Sftp server into an S3 Bucket location. Instead
@@ -16,11 +16,11 @@ seems to be more fit for production use cases.
 
 * Design
 #+CAPTION: solution concept
-#+attr_html: :width 200px
+#+attr_html: :width 80%
 [[file:images/sftppush_solution_concept.png][file:./images/sftppush_solution_concept.png]]
 
 #+CAPTION: concurrency
-#+attr_html: :width 200px
+#+attr_html: :width 100%
 [[file:images/sftppush_concurrency_design.png][file:./images/sftppush_concurrency_design.png]]
 
 Most likely you want to run this project inside an Sftp server, which receives a

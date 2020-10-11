@@ -21,12 +21,12 @@ type FsEvent struct {
 type FsEventOperations interface {
 	EventSrc(path string) (string, error)
 	FsInfo(path string) (os.FileInfo, error)
-	NewWatcher(paths []string, conn *s3.S3, bucket *string, userpath *string)
+	NewWatcher(info *EventPushInfo)
 	FType(path string) (string, *io.Reader)
 	Listen(watcher *fsnotify.Watcher, targetevents chan<- EventInfo)
-	Decompress(targetevents <-chan EventInfo, pinfo EventPushInfo, epath *string)
+	Decompress(targetevents <-chan EventInfo, pinfo *EventPushInfo)
 	PushS3(bytes io.Reader, pinfo EventPushInfo, wg *sync.WaitGroup, einfo EventInfo)
-	reduceEventPath(p string, cfgp string) (string, error)
+	reduceEventPath(p string, cfgp *string) (string, error)
 	Remove(event EventInfo)
 }
 
@@ -53,13 +53,17 @@ type Meta struct {
 	Size    int64       `json:"size"`
 }
 
+// EventPushInfo contains the common data for SftpPush Stages
 type EventPushInfo struct {
-	session *s3.S3
-	bucket  string
-	key     string
-	results chan<- *ResultInfo
+	Session   *s3.S3
+	Userpath  *string
+	Watchdirs []string
+	Bucket    *string
+	Key       string
+	Results   chan *ResultInfo
 }
 
+// ResultInfo is the data returned in the results channel
 type ResultInfo struct {
 	response  *s3manager.UploadOutput
 	eventInfo EventInfo

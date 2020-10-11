@@ -9,7 +9,8 @@ require (
 	github.com/spf13/afero v1.1.2
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.2
-	golang.org/x/tools/gopls v0.4.4 // indirect
+	golang.org/x/tools v0.0.0-20201010145503-6e5c6d77ddcc // indirect
+	golang.org/x/tools/gopls v0.5.1 // indirect
 )
 
 go 1.13

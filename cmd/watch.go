@@ -127,7 +127,17 @@ func (w *watchConfigOps) createWatcher(e event.FsEventOps, g *watchConfig) error
 			CheckedSrcDirs = append(CheckedSrcDirs, tDir)
 		}
 	}
-	e.NewWatcher(CheckedSrcDirs, c, trgB, srcD)
+
+	epi := &event.EventPushInfo{
+		Session:   c,
+		Userpath:  srcD,
+		Watchdirs: CheckedSrcDirs,
+		Bucket:    trgB,
+		Key:       "",
+		Results:   make(chan *event.ResultInfo), // Consumer Stage-4
+	}
+
+	e.NewWatcher(epi)
 	return nil
 }
 

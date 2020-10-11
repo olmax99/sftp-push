@@ -7,14 +7,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/fsnotify/fsnotify"
 	"github.com/pkg/errors"
 	"github.com/spf13/afero"
 )
 
 // reduceEventPath returns the absolute Event path reduced by the gCfg userpath
-func (o *FsEventOps) reduceEventPath(evp string, cfgp string) (string, error) {
+func (o *FsEventOps) reduceEventPath(evp string, cfgp *string) (string, error) {
+	cfgUserPath := *cfgp
 	eventPath := strings.Split(evp, "/")
 	eventPathDepth := len(eventPath)
 	reducedPath := make([]string, 0)
@@ -22,7 +22,7 @@ func (o *FsEventOps) reduceEventPath(evp string, cfgp string) (string, error) {
 	for i := 0; i < eventPathDepth; i++ {
 		dEventPath := eventPath[:len(eventPath)-i]
 		evPath := strings.Join(dEventPath, "/")
-		b, err := path.Match(cfgp, evPath+"/")
+		b, err := path.Match(cfgUserPath, evPath+"/")
 		if err != nil {
 			log.Printf("ERROR[-] Derive relative event path, %s", err)
 			return "", errors.Wrapf(err, "Derive relative event path: %s != %s", evp, cfgp)
@@ -83,8 +83,11 @@ func (e *FsEvent) Info() (*EventInfo, error) {
 }
 
 // Implements fsnotify file event watcher on a target directory
-func (o *FsEventOps) NewWatcher(targetDirs []string, conn *s3.S3, targetBucket *string, apath *string) {
-	watcher, err := fsnotify.NewWatcher()
+func (o *FsEventOps) NewWatcher(epIn *EventPushInfo) {
+	// ------------------ Go Concurrency---------------------------------
+	// TODO implement a more expressive concurrency pattern
+
+	watcher, err := fsnotify.NewWatcher() // Producer Stage-0
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -95,29 +98,22 @@ func (o *FsEventOps) NewWatcher(targetDirs []string, conn *s3.S3, targetBucket *
 	// How is a new done channel even working here?
 	// fmt.Printf("%#v", watcher)
 	done := make(chan bool)
-	targetevent := make(chan EventInfo)
-	results := make(chan *ResultInfo)
 
-	epi := EventPushInfo{
-		session: conn,
-		bucket:  *targetBucket,
-		key:     "",
-		results: results,
-	}
+	targetevent := make(chan EventInfo)
 
 	go o.Listen(watcher, targetevent) // fsnotify event implementation
-	go o.Decompress(targetevent, epi, apath)
+	go o.Decompress(targetevent, epIn)
 
 	// Wait for all results in the background
 	go func() {
-		for f := range results {
+		for f := range epIn.Results {
 			//log.Printf("INFO[+] Results: %#v\n", f)
 			go o.Remove(f.eventInfo)
 		}
 	}()
 
 	// Add directories to *Watcher
-	for _, d := range targetDirs {
+	for _, d := range epIn.Watchdirs {
 		err = watcher.Add(d)
 		if err != nil {
 			log.Printf("ERROR[-] NewWatcher.Add %s, %s", d, err)
@@ -127,4 +123,6 @@ func (o *FsEventOps) NewWatcher(targetDirs []string, conn *s3.S3, targetBucket *
 	// Which token is released here? as there was none being send to new done channel..
 	// Is this just blocking? Why?
 	<-done // Release the token
+
+	// ------------------ Go Concurency----------------------------------
 }
