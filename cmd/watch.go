@@ -105,6 +105,8 @@ func init() {
 	// cmdWatch.MarkFlagRequired("source")
 }
 
+// newWatcher encapsulates the fsnotify *NewWatcher creation and provides all data
+// needed for processing the events triggered by the new
 func (w *watchConfigOps) createWatcher(e event.FsEventOps, g *watchConfig) error {
 	id := g.Defaults.Awsprofile
 	reg := g.Defaults.Awsregion
@@ -136,11 +138,12 @@ func (w *watchConfigOps) createWatcher(e event.FsEventOps, g *watchConfig) error
 		Key:       "",
 		Results:   make(chan *event.ResultInfo), // Consumer Stage-4
 	}
-
 	e.NewWatcher(epi)
 	return nil
 }
 
+// unmarshalWatchFlag will store the flag input into the global config instance and
+// thereby overwriting the data received from the config file
 func (w *watchConfigOps) unmarshalWatchFlag(flagIn []string, g *watchConfig) error {
 	g.Watch = struct {
 		Users []struct {
@@ -187,6 +190,7 @@ func (w *watchConfigOps) unmarshalWatchFlag(flagIn []string, g *watchConfig) err
 	return nil
 }
 
+// newS3Conn creates a new AWS Api session
 func (w *watchConfigOps) newS3Conn(p *string, r *string) *s3.S3 {
 	// TODO Use EC2 Instance Role
 
@@ -221,11 +225,12 @@ func (w *watchConfigOps) newS3Conn(p *string, r *string) *s3.S3 {
 		log.Printf("WARNING[-] cmdWatch, Credentials: %s\n", err)
 	}
 
-	svcs3 := s3.New(sess)
-	log.Printf("INFO[+] NewSess: %s", svcs3.ClientInfo.Endpoint)
-	return svcs3
+	svcS3 := s3.New(sess)
+	log.Printf("INFO[+] NewSess: %s\n", svcS3.ClientInfo.Endpoint)
+	return svcS3
 }
 
+// checkDir ensures that the source watch directories exist
 func (w *watchConfigOps) checkDir(p string) (bool, error) {
 	fi, err := os.Stat(p)
 	if err != nil {

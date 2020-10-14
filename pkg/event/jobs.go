@@ -31,25 +31,32 @@ func (o FsEventOps) Remove(e EventInfo) {
 //!+stage-3
 
 // PushS3 uploads the source event file byte stream to S3 and removes the file
-func (o FsEventOps) PushS3(in io.Reader, pi EventPushInfo, wg *sync.WaitGroup, ei EventInfo) {
-	defer wg.Done()
-	uploader := s3manager.NewUploaderWithClient(pi.Session, func(u *s3manager.Uploader) {
-		u.PartSize = 64 * 1024 * 1024 // 64MB per part
-	})
-	upl := s3manager.UploadInput{
-		Body:   in,
-		Bucket: pi.Bucket,
-		Key:    &pi.Key,
-	}
+func (o FsEventOps) PushS3(done <-chan struct{}, in io.Reader, pi EventPushInfo, ei EventInfo) <-chan *ResultInfo {
+	out := make(chan *ResultInfo)
+	go func() {
+		defer close(out)
+		uploader := s3manager.NewUploaderWithClient(pi.Session, func(u *s3manager.Uploader) {
+			u.PartSize = 64 * 1024 * 1024 // 64MB per part
+		})
+		upl := s3manager.UploadInput{
+			Body:   in,
+			Bucket: pi.Bucket,
+			Key:    &pi.Key,
+		}
 
-	r, err := uploader.Upload(&upl)
-	if err != nil {
-		// TODO send upload error to RETRY
-		log.Printf("WARNING[-] Stage-3: PushS3 %s", err)
-	} else {
-		pi.Results <- &ResultInfo{response: r, eventInfo: ei}
-	}
-
+		r, err := uploader.Upload(&upl)
+		if err != nil {
+			// TODO send upload error to RETRY (ErrChan)
+			log.Printf("WARNING[-] Stage-3: PushS3 %s", err)
+		} else {
+			select {
+			case out <- &ResultInfo{response: r, eventInfo: ei}:
+			case <-done:
+				return
+			}
+		}
+	}()
+	return out
 }
 
 //!-stage-3
@@ -78,41 +85,45 @@ func (o *FsEventOps) FType(epath string) (string, *io.Reader) {
 // Decompress detects the file type and sends the decompressed byte stream to the PushS3 stage
 func (o *FsEventOps) Decompress(in <-chan EventInfo, pi *EventPushInfo) {
 	var wg sync.WaitGroup
-	for e := range in {
+	done := make(chan struct{})
+	defer close(done)
+	for {
+		select {
+		case e := <-in:
+			p := e.Event.AbsLoc
+			ft, b := o.FType(p)
+			switch ft {
+			case "application/x-gzip":
+				log.Printf("DEBUG[*] Stage-2: fT %s, %s\n", ft, filepath.Base(p))
+				gz, err := gzip.NewReader(*b)
+				if err != nil {
+					log.Printf("ERROR[-] Stage-2: gzip.NewReader, %s\n", err)
+					done <- struct{}{}
+				}
 
-		p := e.Event.AbsLoc
-		//cfgp := *apath
-
-		ft, b := o.FType(p)
-		switch ft {
-		case "application/x-gzip":
-			log.Printf("DEBUG[*] Stage-2: fT %s, %s\n", ft, filepath.Base(p))
-			gz, err := gzip.NewReader(*b)
-			if err != nil {
-				log.Printf("ERROR[-] Stage-2: gzip.NewReader, %s\n", err)
+				pi.Key, err = o.reduceEventPath(p, pi.Userpath)
+				if err != nil {
+					log.Printf("ERROR[*] Stage-2: %s", err)
+					done <- struct{}{}
+				}
+				wg.Add(1) // only single result in PushS3 chan
+				for n := range o.PushS3(done, gz, *pi, e) {
+					pi.Results <- n
+				}
+				go func() {
+					wg.Wait()
+				}()
+			case "application/zip":
+				log.Printf("DEBUG[*] Stage-2: fT %s, %s\n", ft, filepath.Base(p))
+			default:
+				// if strings.HasPrefix(string(buf), "\x42\x5a\x68") {
+				// 	log.Printf("INFO[*] Stage-1: file type %s, %s\n", ft, filepath.Base(p))
+				// } else {}
+				log.Printf("WARNING[-] Stage-2: unexpected fT %s, %s\n", ft, filepath.Base(p))
 			}
 
-			pi.Key, err = o.reduceEventPath(p, pi.Userpath)
-			if err != nil {
-				log.Printf("ERROR[*] Stage-2: %s", err)
-			}
-
-			wg.Add(1)
-			go o.PushS3(gz, *pi, &wg, e)
-		case "application/zip":
-			log.Printf("DEBUG[*] Stage-2: fT %s, %s\n", ft, filepath.Base(p))
-		default:
-			// if strings.HasPrefix(string(buf), "\x42\x5a\x68") {
-			// 	log.Printf("INFO[*] Stage-1: file type %s, %s\n", ft, filepath.Base(p))
-			// } else {}
-			log.Printf("WARNING[-] Stage-2: unexpected fT %s, %s\n", ft, filepath.Base(p))
 		}
-
 	}
-	go func() {
-		// Blocking until stage-2 and stage-3 are finished
-		wg.Wait()
-	}()
 }
 
 //!-stage-2
@@ -121,13 +132,14 @@ func (o *FsEventOps) Decompress(in <-chan EventInfo, pi *EventPushInfo) {
 
 // Listen listens to file events from fsnotify.Watcher and sends them to the stage-1 channel
 func (o *FsEventOps) Listen(w *fsnotify.Watcher, out chan<- EventInfo) {
+	// out := make(chan EventInfo)
+	// go func() { for { select { .. }} close(out) }()
+	// return out
+
+	// TODO There can only be one EventInfo per event <- use buffered
 	for {
 		select {
-		case event, ok := <-w.Events: // RECEIVE event
-			// check if channel is closed (!ok == closed)
-			if !ok {
-				return
-			}
+		case event := <-w.Events: // RECEIVE event
 			// all events are logged by default
 			log.Printf("DEBUG[+] Stage-1: %v, eventT: %T\n", event, event)
 
@@ -140,6 +152,10 @@ func (o *FsEventOps) Listen(w *fsnotify.Watcher, out chan<- EventInfo) {
 				if err != nil {
 					log.Printf("WARNING[-] Stage-1: Listen %s\n", err)
 				}
+
+				// TODO work with cases:
+				// see github.com/olmax99/fsnotify@v1.5.0/inotify.go (l 178)
+				// M-. NewWatcher + M-. ReadEvents
 
 				// 32 bytes needed for determining file type
 				if ev.Meta.Size >= int64(32) {
@@ -154,16 +170,10 @@ func (o *FsEventOps) Listen(w *fsnotify.Watcher, out chan<- EventInfo) {
 				}
 
 			}
-
-		case err, ok := <-w.Errors: // RECEIVE eventError
-			log.Printf("ERROR[-] Stage-1: Listen %s\n", err)
+		case err := <-w.Errors: // RECEIVE eventError
 			// check if channel is closed (!ok == closed)
-			if !ok {
-				// TODO Will this exit the Listen() func?? when channel
-				// w.Errors gets closed??
-				// Where gets the w.Errors channel closed??
-				return
-			}
+
+			log.Printf("ERROR[-] Stage-1: Listen %s\n", err)
 		}
 	}
 }

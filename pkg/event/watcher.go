@@ -84,25 +84,41 @@ func (e *FsEvent) Info() (*EventInfo, error) {
 
 // Implements fsnotify file event watcher on a target directory
 func (o *FsEventOps) NewWatcher(epIn *EventPushInfo) {
-	// ------------------ Go Concurrency---------------------------------
-	// TODO implement a more expressive concurrency pattern
-
-	watcher, err := fsnotify.NewWatcher() // Producer Stage-0
+	//!+Go Concurrency
+	// 1. Sets up the Pipeline
+	// 2. runs the final stage <- receiving from all open channels
+	watcher, err := fsnotify.NewWatcher() // watcher: implements producer stage-0
 	if err != nil {
 		log.Fatal(err)
 	}
+	//!-Go Concurrency
+
+	//!+stage-0
 	defer watcher.Close() // close SEND Channel
 
+	// Add directories to *Watcher
+	for _, d := range epIn.Watchdirs {
+		err = watcher.Add(d)
+		if err != nil {
+			log.Printf("ERROR[-] NewWatcher.Add %s, %s", d, err)
+		}
+	}
+	//!-stage-0
+
+	//!+Go Concurrency
+
 	// Should this channel not be passed on from fsnotify.NewWatcher?
-	// watcher.done seems to be private and not accessible from here..
 	// How is a new done channel even working here?
-	// fmt.Printf("%#v", watcher)
+	// - This channel needs to be send into Listen()
+	// - It leaves the option for this Producer (stage-0) to leave early
 	done := make(chan bool)
+	// defer close(done)
 
-	targetevent := make(chan EventInfo)
+	targetEvent := make(chan EventInfo)
+	//eventErr := make(chan errors)
 
-	go o.Listen(watcher, targetevent) // fsnotify event implementation
-	go o.Decompress(targetevent, epIn)
+	go o.Listen(watcher, targetEvent) // fsnotify event implementation
+	go o.Decompress(targetEvent, epIn)
 
 	// Wait for all results in the background
 	go func() {
@@ -112,17 +128,11 @@ func (o *FsEventOps) NewWatcher(epIn *EventPushInfo) {
 		}
 	}()
 
-	// Add directories to *Watcher
-	for _, d := range epIn.Watchdirs {
-		err = watcher.Add(d)
-		if err != nil {
-			log.Printf("ERROR[-] NewWatcher.Add %s, %s", d, err)
-		}
-	}
-
 	// Which token is released here? as there was none being send to new done channel..
 	// Is this just blocking? Why?
+	// - Each downstream stage will have a select statement on  receive 'done'.
+	// - This will give a signal that the downstram stages shall stop sending values
 	<-done // Release the token
 
-	// ------------------ Go Concurency----------------------------------
+	//!-Go Concurency
 }
