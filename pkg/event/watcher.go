@@ -84,16 +84,13 @@ func (e *FsEvent) Info() (*EventInfo, error) {
 
 // Implements fsnotify file event watcher on a target directory
 func (o *FsEventOps) NewWatcher(epIn *EventPushInfo) {
-	//!+Go Concurrency
+	//!+stage-0
 	// 1. Sets up the Pipeline
 	// 2. runs the final stage <- receiving from all open channels
 	watcher, err := fsnotify.NewWatcher() // watcher: implements producer stage-0
 	if err != nil {
 		log.Fatal(err)
 	}
-	//!-Go Concurrency
-
-	//!+stage-0
 	defer watcher.Close() // close SEND Channel
 
 	// Add directories to *Watcher
@@ -105,34 +102,23 @@ func (o *FsEventOps) NewWatcher(epIn *EventPushInfo) {
 	}
 	//!-stage-0
 
-	//!+Go Concurrency
-
-	// Should this channel not be passed on from fsnotify.NewWatcher?
-	// How is a new done channel even working here?
-	// - This channel needs to be send into Listen()
-	// - It leaves the option for this Producer (stage-0) to leave early
+	//!+stage-1
+	//!+stage-2
 	done := make(chan bool)
-	// defer close(done)
 
 	targetEvent := make(chan EventInfo)
 	//eventErr := make(chan errors)
 
-	go o.Listen(watcher, targetEvent) // fsnotify event implementation
-	go o.Decompress(targetEvent, epIn)
+	go o.listen(watcher, targetEvent) // fsnotify event implementation
+	go o.controlWorkers(targetEvent, epIn)
 
 	// Wait for all results in the background
 	go func() {
 		for f := range epIn.Results {
-			//log.Printf("INFO[+] Results: %#v\n", f)
-			go o.Remove(f.eventInfo)
+			log.Printf("INFO[+] Results: %#v\n", f)
 		}
 	}()
-
-	// Which token is released here? as there was none being send to new done channel..
-	// Is this just blocking? Why?
-	// - Each downstream stage will have a select statement on  receive 'done'.
-	// - This will give a signal that the downstram stages shall stop sending values
-	<-done // Release the token
-
-	//!-Go Concurency
+	<-done // Block for listen, controlWorkers to run
+	//!-stage-2
+	//!-stage-1
 }

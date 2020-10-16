@@ -21,12 +21,12 @@ type FsEventOperations interface {
 	EventSrc(path string) (string, error)
 	FsInfo(path string) (os.FileInfo, error)
 	NewWatcher(info *EventPushInfo)
-	FType(path string) (string, *io.Reader)
-	Listen(watcher *fsnotify.Watcher, targetevents chan<- EventInfo)
-	Decompress(targetevents <-chan EventInfo, pinfo *EventPushInfo)
-	PushS3(done <-chan struct{}, bytes io.Reader, pinfo EventPushInfo, einfo EventInfo) <-chan *ResultInfo
+	fType(path string) (string, *io.Reader)
+	listen(watcher *fsnotify.Watcher, targetevents chan<- EventInfo)
+	controlWorkers(targetevents <-chan EventInfo, pinfo *EventPushInfo)
+	pushS3(done <-chan struct{}, bytes io.Reader, pinfo EventPushInfo, einfo EventInfo) <-chan *ResultInfo
 	reduceEventPath(p string, cfgp *string) (string, error)
-	Remove(event EventInfo)
+	removeF(event EventInfo) error
 }
 
 // Implements the FsEventOperations interface
