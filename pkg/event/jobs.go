@@ -108,40 +108,38 @@ func (o *FsEventOps) controlWorkers(in <-chan EventInfo, pi *EventPushInfo) {
 	)
 	done := make(chan struct{})
 	defer close(done)
-	for {
-		select {
-		case e := <-in:
-			p := e.Event.AbsLoc
-			ft, b := o.fType(p)
-			switch ft {
-			case "application/x-gzip":
-				log.Printf("DEBUG[*] Stage-2: fT %s, %s\n", ft, filepath.Base(p))
-				gz, err = gzip.NewReader(*b)
-				if err != nil {
-					log.Printf("ERROR[-] Stage-2: gzip.NewReader, %s\n", err)
-					done <- struct{}{}
-				}
-			case "application/zip":
-				log.Printf("DEBUG[*] Stage-2: fT %s, %s\n", ft, filepath.Base(p))
-			default:
-				// if strings.HasPrefix(string(buf), "\x42\x5a\x68") {
-				// 	log.Printf("INFO[*] Stage-1: file type %s, %s\n", ft, filepath.Base(p))
-				// } else {}
-				log.Printf("WARNING[-] Stage-2: unexpected fT %s, %s\n", ft, filepath.Base(p))
-			}
-			pi.Key, err = o.reduceEventPath(p, pi.Userpath)
+	for e := range in {
+		p := e.Event.AbsLoc
+		ft, b := o.fType(p)
+		switch ft {
+		case "application/x-gzip":
+			log.Printf("DEBUG[*] Stage-2: fT %s, %s\n", ft, filepath.Base(p))
+			gz, err = gzip.NewReader(*b)
 			if err != nil {
-				log.Printf("ERROR[*] Stage-2: %s", err)
+				log.Printf("ERROR[-] Stage-2: gzip.NewReader, %s\n", err)
 				done <- struct{}{}
 			}
-			wg.Add(1) // only single result in PushS3 chan
-			for n := range o.pushS3(done, gz, *pi, e) {
-				pi.Results <- n
-			}
-			go func() {
-				wg.Wait()
-			}()
+		case "application/zip":
+			log.Printf("DEBUG[*] Stage-2: fT %s, %s\n", ft, filepath.Base(p))
+		default:
+			// if strings.HasPrefix(string(buf), "\x42\x5a\x68") {
+			// 	log.Printf("INFO[*] Stage-1: file type %s, %s\n", ft, filepath.Base(p))
+			// } else {}
+			log.Printf("WARNING[-] Stage-2: unexpected fT %s, %s\n", ft, filepath.Base(p))
 		}
+		pi.Key, err = o.reduceEventPath(p, pi.Userpath)
+		if err != nil {
+			log.Printf("ERROR[*] Stage-2: %s", err)
+			done <- struct{}{}
+		}
+		wg.Add(1) // only single result in PushS3 chan
+		for n := range o.pushS3(done, gz, *pi, e) {
+			pi.Results <- n
+		}
+		go func() {
+			wg.Wait()
+		}()
+
 	}
 }
 

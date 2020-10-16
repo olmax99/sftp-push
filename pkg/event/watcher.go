@@ -25,7 +25,7 @@ func (o *FsEventOps) reduceEventPath(evp string, cfgp *string) (string, error) {
 		b, err := path.Match(cfgUserPath, evPath+"/")
 		if err != nil {
 			log.Printf("ERROR[-] Derive relative event path, %s", err)
-			return "", errors.Wrapf(err, "Derive relative event path: %s != %s", evp, cfgp)
+			return "", errors.Wrapf(err, "Derive relative event path: %s != %s", evp, *cfgp)
 		}
 		if b {
 			break
@@ -107,7 +107,7 @@ func (o *FsEventOps) NewWatcher(epIn *EventPushInfo) {
 	done := make(chan bool)
 
 	targetEvent := make(chan EventInfo)
-	//eventErr := make(chan errors)
+	// eventErr := make(chan errors)
 
 	go o.listen(watcher, targetEvent) // fsnotify event implementation
 	go o.controlWorkers(targetEvent, epIn)
