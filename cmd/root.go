@@ -1,15 +1,24 @@
 package cmd
 
 import (
-	"log"
+	"errors"
+	"fmt"
+	"os"
 	"strings"
+
+	log "github.com/olmax99/sftppush/log"
+	"github.com/sirupsen/logrus"
 
 	"github.com/olmax99/sftppush/config"
 	"github.com/spf13/cobra"
 )
 
-var cfgFile string
-var gCfg watchConfig // global watchConfig accessed by watch.go and event/watcher.go
+var (
+	cfgFile string
+	gCfg    watchConfig // global watchConfig accessed by watch.go and event/watcher.go
+	gL      *logrus.Logger
+	msg     string
+)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -80,7 +89,7 @@ SFTPPUSH_DEFAULTS_AWSPROFILE=my-profile sftppush watch \
 // needs to happen once to the rootCmd.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		log.Fatalf("FATAL[-] rootCmd: %s", err)
+		gL.Fatalf("%s", err)
 	}
 }
 
@@ -88,14 +97,19 @@ func Execute() {
 
 func initConfig() {
 	v := config.ReadConfig("SFTPPUSH", cfgFile)
-
 	if err := v.Unmarshal(&gCfg); err != nil {
-		log.Printf("ERROR[-] initConfig: %s", err)
+		fmt.Printf("%s", errors.New("unmarshal"))
+		os.Exit(0)
 	}
 
-	log.Printf("DEBUG[*] initConfig, gCfg: %#v", &gCfg)
-	// log.Printf("DEBUG[*] initConfig, region: %s", v.GetString("defaults.awsregion"))
-	// log.Printf("DEBUG[*] initConfig, profile: %s", v.GetString("defaults.awsprofile"))
+	// initialize custom logger
+	gL, msg = log.NewLogger(v)
+	gL.Infof("Initialize log: %s", msg)
+
+	gL.Debugf("initConfig, s3target: %s", v.GetString("defaults.s3target"))
+	gL.Infof("initConfig, log.format: %s", v.GetString("defaults.log.format"))
+	gL.Warnf("initConfig, log.level: %s", v.GetString("defaults.log.level"))
+	gL.Errorf("initConfig, log.location: %s", v.GetString("defaults.log.location"))
 }
 
 func init() {
@@ -106,7 +120,7 @@ func init() {
 	// when this action is called directly.
 	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
-	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "path to config file (default is $HOME/.sftppush.yaml)")
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "path to config file (default is $HOME/.sftppush/config.yaml)")
 	// rootCmd.PersistentFlags().Bool("viper", true, "use Viper for configuration")
 	// viper.BindPFlag("useViper", rootCmd.PersistentFlags().Lookup("viper"))
 }

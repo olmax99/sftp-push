@@ -1,9 +1,10 @@
 package cmd
 
 import (
-	"log"
 	"os"
 	"strings"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -21,6 +22,11 @@ type watchConfig struct {
 		S3Target   string `yaml:"s3target"`
 		Awsprofile string `yaml:"awsprofile"`
 		Awsregion  string `yaml:"awsregion"`
+		Log        []struct {
+			Format   string `yaml:"format"`
+			Location string `yaml:"location"`
+			Level    string `yaml:"level"`
+		} `yaml:"log"`
 	} `yaml:"defaults"`
 	Watch struct {
 		Users []struct {
@@ -78,8 +84,8 @@ SFTPPUSH_DEFAULTS_AWSPROFILE=my-profile sftppush watch \
 			return errors.New("Use either '--source' flag or '--config'.")
 		}
 
-		log.Printf("DEBUG[*] cfgWatch (from config): %q", &gCfg)
-		log.Printf("DEBUG[*] cmdWatch (from flag): %s", src)
+		gL.Debugf("cfgWatch (from config): %q", &gCfg)
+		gL.Debugf("cmdWatch (from flag): %s", src)
 
 		// Will overwrite config values if both --config and --sources are set
 		if cmd.Flag("source").Changed {
@@ -103,6 +109,7 @@ func init() {
 	rootCmd.AddCommand(cmdWatch)
 	cmdWatch.Flags().StringArrayVarP(&src, "source", "s", []string{}, "Source directories to watch (required)")
 	// cmdWatch.MarkFlagRequired("source")
+
 }
 
 // newWatcher encapsulates the fsnotify *NewWatcher creation and provides all data
@@ -138,7 +145,7 @@ func (w *watchConfigOps) createWatcher(e event.FsEventOps, g *watchConfig) error
 		Key:       "",
 		Results:   make(chan *event.ResultInfo), // Consumer Stage-4
 	}
-	e.NewWatcher(epi)
+	e.NewWatcher(epi, gL)
 	return nil
 }
 

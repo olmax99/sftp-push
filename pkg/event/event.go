@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/fsnotify/fsnotify"
+	"github.com/sirupsen/logrus"
 )
 
 // FsEvent encapsulates file event and the FsEventOperations interface
@@ -20,7 +21,7 @@ type FsEvent struct {
 type FsEventOperations interface {
 	EventSrc(path string) (string, error)
 	FsInfo(path string) (os.FileInfo, error)
-	NewWatcher(info *EventPushInfo)
+	NewWatcher(info *EventPushInfo, logger *logrus.Logger)
 	fType(path string) (string, *io.Reader)
 	listen(watcher *fsnotify.Watcher, targetevents chan<- EventInfo)
 	controlWorkers(targetevents <-chan EventInfo, pinfo *EventPushInfo)

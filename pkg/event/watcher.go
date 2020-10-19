@@ -1,11 +1,13 @@
 package event
 
 import (
-	"log"
 	"os"
 	"path"
 	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/pkg/errors"
@@ -24,7 +26,6 @@ func (o *FsEventOps) reduceEventPath(evp string, cfgp *string) (string, error) {
 		evPath := strings.Join(dEventPath, "/")
 		b, err := path.Match(cfgUserPath, evPath+"/")
 		if err != nil {
-			log.Printf("ERROR[-] Derive relative event path, %s", err)
 			return "", errors.Wrapf(err, "Derive relative event path: %s != %s", evp, *cfgp)
 		}
 		if b {
@@ -83,7 +84,7 @@ func (e *FsEvent) Info() (*EventInfo, error) {
 }
 
 // Implements fsnotify file event watcher on a target directory
-func (o *FsEventOps) NewWatcher(epIn *EventPushInfo) {
+func (o *FsEventOps) NewWatcher(epIn *EventPushInfo, lg *logrus.Logger) {
 	//!+stage-0
 	// 1. Sets up the Pipeline
 	// 2. runs the final stage <- receiving from all open channels
@@ -97,7 +98,7 @@ func (o *FsEventOps) NewWatcher(epIn *EventPushInfo) {
 	for _, d := range epIn.Watchdirs {
 		err = watcher.Add(d)
 		if err != nil {
-			log.Printf("ERROR[-] NewWatcher.Add %s, %s", d, err)
+			lg.Fatalf("NewWatcher.Add %s, %s", d, err)
 		}
 	}
 	//!-stage-0

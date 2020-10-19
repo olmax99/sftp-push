@@ -6,12 +6,13 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"

@@ -36,7 +36,22 @@ there will be a separate =go watch process= spawned for each target directory, r
 
 
 * Quick Launch
-** 1. Create a configuration file
+** 1. Install the sftppush tool locally 
+_NOTE:_ ONLY TESTED ON UBUNTU AND DEBIAN (this project relies on the UNIX
+CLOSE_WRITE event)
+
+*** Ubuntu/Debian
+#+begin_src bash
+$ git clone https://github.com/olmax99/sftppush.git
+$ cd sftppush
+
+$ make build
+$ ./bin/sftppush-0.1.0-linux_amd64 help watch
+#+end_src
+
+This will create a new binary in =./bin/sftppush-0.2.2-linux_amd64=.
+
+** 2. Create a configuration file
 _Recommended_: Create =config.yaml= in project root and set flag --=config=.
 
 #+BEGIN_EXAMPLE
@@ -63,14 +78,12 @@ watch:
     #   s3target: olmax-test-sftppush-126912
 #+END_SRC
 
-** 2. Run the event watcher on a single local directory
+** 3. Run the event watcher on a single local directory
 If a config files is created there is no need to set the =--source= flags. Flags
 will overwrite config file values.
 
 Running it should be as simple as:
-#+BEGIN_SRC bash  
-$ make build
-$ ./bin/sftppush-0.1.0-linux_amd64 help watch
+#+BEGIN_SRC bash
 $ ./bin/sftppush-0.2.0-linux_amd64 --config config.yaml watch
 
 # EXAMPLE 1: Run without config with two sources
