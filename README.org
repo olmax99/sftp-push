@@ -16,7 +16,7 @@ seems to be more fit for production use cases.
 
 * Design
 #+CAPTION: solution concept
-#+attr_html: :width 80%
+#+attr_html: :width 100%
 [[file:images/sftppush_solution_concept.png][file:./images/sftppush_solution_concept.png]]
 
 #+CAPTION: concurrency
@@ -46,7 +46,7 @@ $ git clone https://github.com/olmax99/sftppush.git
 $ cd sftppush
 
 $ make build
-$ ./bin/sftppush-0.1.0-linux_amd64 help watch
+$ ./bin/sftppush-0.1.0-linux_amd64 help
 #+end_src
 
 This will create a new binary in =./bin/sftppush-0.2.2-linux_amd64=.
