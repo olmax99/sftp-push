@@ -2,14 +2,13 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
-	"os"
+	log1 "log" // Use built-in log prior to logrus
 	"strings"
 
-	log "github.com/olmax99/sftppush/log"
-	"github.com/sirupsen/logrus"
+	config "github.com/olmax99/sftppush/internal/config"
+	log "github.com/olmax99/sftppush/internal/log"
 
-	"github.com/olmax99/sftppush/config"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -98,8 +97,7 @@ func Execute() {
 func initConfig() {
 	v := config.ReadConfig("SFTPPUSH", cfgFile)
 	if err := v.Unmarshal(&gCfg); err != nil {
-		fmt.Printf("%s", errors.New("unmarshal"))
-		os.Exit(0)
+		log1.Fatalf("%s", errors.New("unmarshal"))
 	}
 
 	// initialize custom logger

@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -31,7 +31,8 @@ func (o FsEventOps) removeF(e EventInfo) error {
 }
 
 // PushS3 uploads the source event file byte stream to S3 and removes the file
-func (o FsEventOps) pushS3(done <-chan struct{}, in io.Reader, pi EventPushInfo, ei EventInfo) <-chan *ResultInfo {
+func (o FsEventOps) pushS3(done <-chan struct{}, in io.Reader, pi EventPushInfo, ei EventInfo, lg *logrus.Logger) <-chan *ResultInfo {
+	ctxLog := lg.WithField("stage", 3)
 	out := make(chan *ResultInfo)
 	go func() {
 		defer close(out)
@@ -59,9 +60,9 @@ func (o FsEventOps) pushS3(done <-chan struct{}, in io.Reader, pi EventPushInfo,
 			if aerr, ok := err.(awserr.Error); ok && aerr.Code() == request.CanceledErrorCode {
 				// If the SDK can determine the request or retry delay was canceled
 				// by a context the CanceledErrorCode error code will be returned.
-				log.Printf("request's context canceled, %s", err)
+				ctxLog.Errorf("request's context canceled, %s", err)
 			} else {
-				log.Printf("WARNING[-] Stage-3: PushS3 %s", err)
+				ctxLog.Warnf("PushS3 %s", err)
 			}
 		} else {
 			select {
@@ -70,7 +71,7 @@ func (o FsEventOps) pushS3(done <-chan struct{}, in io.Reader, pi EventPushInfo,
 				return
 			}
 			if err := o.removeF(ei); err != nil {
-				log.Printf("Error[-] Stage-3: removeF %s", err)
+				ctxLog.Errorf("removeF %s", err)
 			}
 		}
 	}()
@@ -82,15 +83,16 @@ func (o FsEventOps) pushS3(done <-chan struct{}, in io.Reader, pi EventPushInfo,
 //!+stage-2
 
 // FType detects and returns the file type along with the initial file io.Reader
-func (o *FsEventOps) fType(epath string) (string, *io.Reader) {
+func (o *FsEventOps) fType(epath string, lg *logrus.Logger) (string, *io.Reader) {
+	ctxLog := lg.WithFields(logrus.Fields{"stage": 2})
 	f, err := os.Open(epath)
 	if err != nil {
-		log.Printf("WARNING[-] Stage-2: Open %s, %s\n", filepath.Base(epath), err)
+		ctxLog.Warnf("Open %s, %s\n", filepath.Base(epath), err)
 	}
 
 	buf := make([]byte, 32)
 	if _, err := f.Read(buf); err != nil {
-		log.Printf("ERROR[-] Stage-2: File Read %s, %s\n", filepath.Base(epath), err)
+		ctxLog.Errorf("File Read %s, %s\n", filepath.Base(epath), err)
 	}
 	fT := http.DetectContentType(buf)
 
@@ -101,40 +103,41 @@ func (o *FsEventOps) fType(epath string) (string, *io.Reader) {
 }
 
 // controlWorkers detects the file type and sends the decompressed byte stream to the PushS3 stage
-func (o *FsEventOps) controlWorkers(in <-chan EventInfo, pi *EventPushInfo) {
+func (o *FsEventOps) controlWorkers(in <-chan EventInfo, pi *EventPushInfo, lg *logrus.Logger) {
 	var (
 		wg  sync.WaitGroup
 		gz  io.Reader
 		err error
 	)
+	ctxLog := lg.WithFields(logrus.Fields{"stage": 2})
 	done := make(chan struct{})
 	defer close(done)
 	for e := range in {
 		p := e.Event.AbsLoc
-		ft, b := o.fType(p)
+		ft, b := o.fType(p, lg)
 		switch ft {
 		case "application/x-gzip":
-			log.Printf("DEBUG[*] Stage-2: fT %s, %s\n", ft, filepath.Base(p))
+			lg.Debugf("Stage-2: fT %s, %s\n", ft, filepath.Base(p))
 			gz, err = gzip.NewReader(*b)
 			if err != nil {
-				log.Printf("ERROR[-] Stage-2: gzip.NewReader, %s\n", err)
+				ctxLog.Errorf("gzip.NewReader, %s", err)
 				done <- struct{}{}
 			}
 		case "application/zip":
-			log.Printf("DEBUG[*] Stage-2: fT %s, %s\n", ft, filepath.Base(p))
+			ctxLog.Debugf("fT %s, %s", ft, filepath.Base(p))
 		default:
 			// if strings.HasPrefix(string(buf), "\x42\x5a\x68") {
 			// 	log.Printf("INFO[*] Stage-1: file type %s, %s\n", ft, filepath.Base(p))
 			// } else {}
-			log.Printf("WARNING[-] Stage-2: unexpected fT %s, %s\n", ft, filepath.Base(p))
+			ctxLog.Warnf("unexpected fT %s, %s", ft, filepath.Base(p))
 		}
 		pi.Key, err = o.reduceEventPath(p, pi.Userpath)
 		if err != nil {
-			log.Printf("ERROR[*] Stage-2: %s", err)
+			ctxLog.Errorf("%s", err)
 			done <- struct{}{}
 		}
 		wg.Add(1) // only single result in PushS3 chan
-		for n := range o.pushS3(done, gz, *pi, e) {
+		for n := range o.pushS3(done, gz, *pi, e, lg) {
 			pi.Results <- n
 		}
 		go func() {
@@ -149,17 +152,13 @@ func (o *FsEventOps) controlWorkers(in <-chan EventInfo, pi *EventPushInfo) {
 //!+stage-1
 
 // Listen listens to file events from fsnotify.Watcher and sends them to the stage-1 channel
-func (o *FsEventOps) listen(w *fsnotify.Watcher, out chan<- EventInfo) {
-	// out := make(chan EventInfo)
-	// go func() { for { select { .. }} close(out) }()
-	// return out
-
-	// TODO There can only be one EventInfo per event <- use buffered
+func (o *FsEventOps) listen(w *fsnotify.Watcher, out chan<- EventInfo, lg *logrus.Logger) {
+	ctxLog := lg.WithFields(logrus.Fields{"stage": 1})
 	for {
 		select {
 		case event := <-w.Events: // RECEIVE event
 			// all events are logged by default
-			log.Printf("DEBUG[+] Stage-1: %v, eventT: %T\n", event, event)
+			ctxLog.Debugf("%v, eventT: %T", event, event)
 
 			if event.Op&fsnotify.CloseWrite == fsnotify.CloseWrite {
 				fsEv := &FsEvent{
@@ -168,12 +167,8 @@ func (o *FsEventOps) listen(w *fsnotify.Watcher, out chan<- EventInfo) {
 				}
 				ev, err := fsEv.Info()
 				if err != nil {
-					log.Printf("WARNING[-] Stage-1: Listen %s\n", err)
+					ctxLog.Warnf("Listen %s", err)
 				}
-
-				// TODO work with cases:
-				// see github.com/olmax99/fsnotify@v1.5.0/inotify.go (l 178)
-				// M-. NewWatcher + M-. ReadEvents
 
 				// 32 bytes needed for determining file type
 				if ev.Meta.Size >= int64(32) {
@@ -182,15 +177,15 @@ func (o *FsEventOps) listen(w *fsnotify.Watcher, out chan<- EventInfo) {
 					// only for testing
 					einfo, err := json.Marshal(ev)
 					if err != nil {
-						log.Printf("ERROR[-] Stage-1: Json, %s\n", err)
+						ctxLog.Errorf("Json, %s", err)
 					}
-					log.Printf("DEBUG[*] Stage-1: Unknown File Type, %v, eiT: %T\n", string(einfo), ev)
+					ctxLog.Debugf("Unknown File Type, %v, eiT: %T", string(einfo), ev)
 				}
 
 			}
 		case err := <-w.Errors: // RECEIVE eventError
 			// check if channel is closed (!ok == closed)
-			log.Printf("ERROR[-] Stage-1: Listen %s\n", err)
+			ctxLog.Errorf("Listen %s", err)
 		}
 	}
 }

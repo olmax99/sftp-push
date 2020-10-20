@@ -22,10 +22,10 @@ type FsEventOperations interface {
 	EventSrc(path string) (string, error)
 	FsInfo(path string) (os.FileInfo, error)
 	NewWatcher(info *EventPushInfo, logger *logrus.Logger)
-	fType(path string) (string, *io.Reader)
-	listen(watcher *fsnotify.Watcher, targetevents chan<- EventInfo)
-	controlWorkers(targetevents <-chan EventInfo, pinfo *EventPushInfo)
-	pushS3(done <-chan struct{}, bytes io.Reader, pinfo EventPushInfo, einfo EventInfo) <-chan *ResultInfo
+	fType(path string, logger *logrus.Logger) (string, *io.Reader)
+	listen(watcher *fsnotify.Watcher, targetevents chan<- EventInfo, logger *logrus.Logger)
+	controlWorkers(targetevents <-chan EventInfo, pinfo *EventPushInfo, logger *logrus.Logger)
+	pushS3(done <-chan struct{}, bytes io.Reader, pinfo EventPushInfo, einfo EventInfo, logger *logrus.Logger) <-chan *ResultInfo
 	reduceEventPath(p string, cfgp *string) (string, error)
 	removeF(event EventInfo) error
 }

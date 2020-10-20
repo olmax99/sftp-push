@@ -52,7 +52,7 @@ $ ./bin/sftppush-0.1.0-linux_amd64 help
 This will create a new binary in =./bin/sftppush-0.2.2-linux_amd64=.
 
 ** 2. Create a configuration file
-_Recommended_: Create =config.yaml= in project root and set flag --=config=.
+_Recommended_: Create =config.yaml= in project root and set flag =--config= or =-c=.
 
 #+BEGIN_EXAMPLE
 All source directories for fsnotify are determined by:
@@ -66,6 +66,10 @@ defaults:
   s3target: olmax-test-sftppush-126912
   awsprofile: ***
   awsregion: ***
+  # log:
+  #   level: info
+  #   location: "syslog" || <abs/path/to/logfile>
+  #   format: json
 watch:
   source:
     - name: sftpuser1
@@ -77,6 +81,11 @@ watch:
     #     - path/to/source/directory1
     #   s3target: olmax-test-sftppush-126912
 #+END_SRC
+
+By default (without =log:=) =Sftppush= will try to use =~/.sftppush/sftppush.log=. 
+- If the directory does not exist, it will use =Stderr=
+- Optionally =syslog= can be used but requires =rsyslog= to be active.
+- Log level is at =debug= by default, which is producing overhead.
 
 ** 3. Run the event watcher on a single local directory
 If a config files is created there is no need to set the =--source= flags. Flags

@@ -9,13 +9,17 @@
 // - custom log location
 // - format json
 //--------------------------------------------------------------
-package log
+package internal
 
 import (
+	log1 "log"
+	"log/syslog"
 	"os"
 	"path/filepath"
 
 	"github.com/sirupsen/logrus"
+	lSyslog "github.com/sirupsen/logrus/hooks/syslog"
+
 	"github.com/spf13/viper"
 )
 
@@ -76,17 +80,29 @@ func newLogrusLogger(cfg *viper.Viper) (*logrus.Logger, string) {
 		l.Formatter = new(logrus.JSONFormatter)
 	}
 
-	log_loc := cfg.GetString("defaults.log.location")
-	_, err := os.Stat(filepath.Dir(log_loc))
-	if err != nil {
-		l.Out = os.Stderr
-	}
-	file, err := os.OpenFile(log_loc, os.O_CREATE|os.O_WRONLY, 0644)
-	if err == nil {
-		l.Out = file
+	switch log_loc := cfg.GetString("defaults.log.location"); {
+	case log_loc == "syslog":
 		msg = log_loc
-	} else {
-		l.Out = os.Stderr
+		hook, err := lSyslog.NewSyslogHook("udp", "localhost:514", syslog.LOG_INFO, "")
+		if err == nil {
+			l.Hooks.Add(hook)
+		} else {
+			log1.Print("WARNING[-] newLogrusLogger: %s", err)
+		}
+	default:
+		_, err := os.Stat(filepath.Dir(log_loc))
+		if err != nil {
+			log1.Printf("WARNING[-] newLogrusLogger: %s", err)
+			l.Out = os.Stderr
+		}
+		file, err := os.OpenFile(log_loc, os.O_CREATE|os.O_WRONLY, 0644)
+		if err == nil {
+			log1.Printf("WARNING[-] newLogrusLogger: %s", err)
+			l.Out = file
+			msg = log_loc
+		} else {
+			l.Out = os.Stderr
+		}
 	}
 
 	switch cfg.GetString("defaults.log.level") {

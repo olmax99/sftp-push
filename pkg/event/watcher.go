@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/pkg/errors"
@@ -85,12 +84,14 @@ func (e *FsEvent) Info() (*EventInfo, error) {
 
 // Implements fsnotify file event watcher on a target directory
 func (o *FsEventOps) NewWatcher(epIn *EventPushInfo, lg *logrus.Logger) {
+	ctxLog := lg.WithField("stage", 0)
+
 	//!+stage-0
 	// 1. Sets up the Pipeline
 	// 2. runs the final stage <- receiving from all open channels
 	watcher, err := fsnotify.NewWatcher() // watcher: implements producer stage-0
 	if err != nil {
-		log.Fatal(err)
+		ctxLog.Fatal(err)
 	}
 	defer watcher.Close() // close SEND Channel
 
@@ -98,7 +99,7 @@ func (o *FsEventOps) NewWatcher(epIn *EventPushInfo, lg *logrus.Logger) {
 	for _, d := range epIn.Watchdirs {
 		err = watcher.Add(d)
 		if err != nil {
-			lg.Fatalf("NewWatcher.Add %s, %s", d, err)
+			ctxLog.Fatalf("NewWatcher.Add %s, %s", d, err)
 		}
 	}
 	//!-stage-0
@@ -110,13 +111,13 @@ func (o *FsEventOps) NewWatcher(epIn *EventPushInfo, lg *logrus.Logger) {
 	targetEvent := make(chan EventInfo)
 	// eventErr := make(chan errors)
 
-	go o.listen(watcher, targetEvent) // fsnotify event implementation
-	go o.controlWorkers(targetEvent, epIn)
+	go o.listen(watcher, targetEvent, lg) // fsnotify event implementation
+	go o.controlWorkers(targetEvent, epIn, lg)
 
 	// Wait for all results in the background
 	go func() {
 		for f := range epIn.Results {
-			log.Printf("INFO[+] Results: %#v\n", f)
+			lg.Debugf("INFO[+] Results: %#v", f)
 		}
 	}()
 	<-done // Block for listen, controlWorkers to run
