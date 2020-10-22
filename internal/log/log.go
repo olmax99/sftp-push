@@ -87,7 +87,7 @@ func newLogrusLogger(cfg *viper.Viper) (*logrus.Logger, string) {
 		if err == nil {
 			l.Hooks.Add(hook)
 		} else {
-			log1.Print("WARNING[-] newLogrusLogger: %s", err)
+			log1.Printf("WARNING[-] newLogrusLogger: %s", err)
 		}
 	default:
 		_, err := os.Stat(filepath.Dir(log_loc))
