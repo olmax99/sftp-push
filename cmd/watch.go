@@ -169,7 +169,9 @@ func (w *watchConfigOps) confirmConfig(g *watchConfig) error {
 	// log final config
 	var body interface{}
 	reqBodyBytes := new(bytes.Buffer)
-	json.NewEncoder(reqBodyBytes).Encode(g)
+	if err := json.NewEncoder(reqBodyBytes).Encode(g); err != nil {
+		return errors.Wrap(err, "confirmConfig")
+	}
 
 	if err := yaml.Unmarshal(reqBodyBytes.Bytes(), &body); err != nil {
 		panic(err)

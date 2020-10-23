@@ -82,7 +82,9 @@ SFTPPUSH_DEFAULTS_AWSPROFILE=my-profile sftppush watch \
 	// The action can also be to just load the initConfig
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
-			cmd.Help()
+			if err := cmd.Help(); err != nil {
+				gL.Fatalln("Help message.")
+			}
 		}
 	},
 }
