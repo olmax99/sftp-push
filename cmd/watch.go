@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"bytes"
+	"encoding/json"
 	"os"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -22,7 +25,7 @@ type watchConfig struct {
 		S3Target   string `yaml:"s3target"`
 		Awsprofile string `yaml:"awsprofile"`
 		Awsregion  string `yaml:"awsregion"`
-		Log        []struct {
+		Log        struct {
 			Format   string `yaml:"format"`
 			Location string `yaml:"location"`
 			Level    string `yaml:"level"`
@@ -79,7 +82,6 @@ SFTPPUSH_DEFAULTS_AWSPROFILE=my-profile sftppush watch \
 	// },
 	RunE: func(cmd *cobra.Command, args []string) error {
 		w := watchConfigOps{}
-
 		if n := cmd.Flags().NFlag(); n < 1 {
 			return errors.New("Use either '--source' flag or '--config'.")
 		}
@@ -87,12 +89,17 @@ SFTPPUSH_DEFAULTS_AWSPROFILE=my-profile sftppush watch \
 		gL.Debugf("cfgWatch (from config): %q", &gCfg)
 		gL.Debugf("cmdWatch (from flag): %s", src)
 
-		// Will overwrite config values if both --config and --sources are set
+		// Will overwrite config values if both --config and --sources are se
 		if cmd.Flag("source").Changed {
 			if err := w.unmarshalWatchFlag(src, &gCfg); err != nil {
 				// log.Fatalf("FATAL[*] decodeWatchFlag: %s", err)
 				return errors.Wrapf(err, "decodeWatchFlag: %q", src)
 			}
+		}
+
+		// Confirm that required parameters are set
+		if err := w.confirmConfig(&gCfg); err != nil {
+			return errors.Wrap(err, "required paramters missing")
 		}
 
 		// TODO Catch errors, implement a notification service
@@ -132,7 +139,6 @@ func (w *watchConfigOps) createWatcher(e event.FsEventOps, g *watchConfig) error
 			if err != nil || !d {
 				return errors.Wrapf(err, "e.NewWatcher: targetDir %s does not exist.", tDir)
 			}
-			// log.Printf("DEBUG[*] createWatcher,checkDir: %s", tDir)
 			CheckedSrcDirs = append(CheckedSrcDirs, tDir)
 		}
 	}
@@ -146,6 +152,32 @@ func (w *watchConfigOps) createWatcher(e event.FsEventOps, g *watchConfig) error
 		Results:   make(chan *event.ResultInfo), // Consumer Stage-4
 	}
 	e.NewWatcher(epi, gL)
+	return nil
+}
+
+func (w *watchConfigOps) confirmConfig(g *watchConfig) error {
+	// Confirm that Aws parameters are present
+	switch v := g.Defaults; {
+	case v.Awsprofile == "":
+		return errors.Wrap(errors.New("Awsprofile not set"), "confirmConfig failed")
+	case v.Awsregion == "":
+		return errors.Wrap(errors.New("Awsregion not set"), "confirmConfig failed")
+	case v.S3Target == "":
+		return errors.Wrap(errors.New("S3Target not set"), "confirmConfig failed")
+	}
+
+	// log final config
+	var body interface{}
+	reqBodyBytes := new(bytes.Buffer)
+	json.NewEncoder(reqBodyBytes).Encode(g)
+
+	if err := yaml.Unmarshal(reqBodyBytes.Bytes(), &body); err != nil {
+		panic(err)
+	}
+	gL.WithFields(log.Fields{
+		"config": w.convert(body),
+	}).Info("Load configuration..")
+
 	return nil
 }
 
@@ -249,4 +281,20 @@ func (w *watchConfigOps) checkDir(p string) (bool, error) {
 		return false, nil
 	}
 	return true, nil
+}
+
+func (w *watchConfigOps) convert(i interface{}) interface{} {
+	switch x := i.(type) {
+	case map[interface{}]interface{}:
+		m2 := map[string]interface{}{}
+		for k, v := range x {
+			m2[k.(string)] = w.convert(v)
+		}
+		return m2
+	case []interface{}:
+		for i, v := range x {
+			x[i] = w.convert(v)
+		}
+	}
+	return i
 }

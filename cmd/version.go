@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/olmax99/sftppush/version"
+	"github.com/olmax99/sftppush/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -11,11 +11,11 @@ var versionCmd = &cobra.Command{
 	Short: "Print the version number of generated code example",
 	Long:  `All software has versions. This is generated code example`,
 	Run: func(cmd *cobra.Command, args []string) {
-		gL.Println("Build Date:", version.BuildDate)
-		gL.Println("Git Commit:", version.GitCommit)
-		gL.Println("Version:", version.Version)
-		gL.Println("Go Version:", version.GoVersion)
-		gL.Println("OS / Arch:", version.OsArch)
+		gL.Infoln("Build Date:", version.BuildDate)
+		gL.Infoln("Git Commit:", version.GitCommit)
+		gL.Infoln("Version:", version.Version)
+		gL.Infoln("Go Version:", version.GoVersion)
+		gL.Infoln("OS / Arch:", version.OsArch)
 	},
 }
 

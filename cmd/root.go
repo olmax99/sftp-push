@@ -80,7 +80,11 @@ SFTPPUSH_DEFAULTS_AWSPROFILE=my-profile sftppush watch \
 	// Uncomment the following line if your bare application
 	// has an action associated with it
 	// The action can also be to just load the initConfig
-	Run: func(cmd *cobra.Command, args []string) {},
+	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) == 0 {
+			cmd.Help()
+		}
+	},
 }
 
 // Execute is the Cobra cli entrypoint and adds all child commands to the root
@@ -103,11 +107,6 @@ func initConfig() {
 	// initialize custom logger
 	gL, msg = log.NewLogger(v)
 	gL.Infof("Initialize log: %s", msg)
-
-	gL.Debugf("initConfig, s3target: %s", v.GetString("defaults.s3target"))
-	gL.Infof("initConfig, log.format: %s", v.GetString("defaults.log.format"))
-	gL.Warnf("initConfig, log.level: %s", v.GetString("defaults.log.level"))
-	gL.Errorf("initConfig, log.location: %s", v.GetString("defaults.log.location"))
 }
 
 func init() {

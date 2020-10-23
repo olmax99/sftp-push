@@ -1,6 +1,6 @@
 #+TITLE: Sftppush Event Pipeline
 #+SETUPFILE: ~/s3olmax/org/conf/setup.config
-#+FILETAGS: :candisolar:sftp:bhiwadi:
+#+FILETAGS: :sftpush:golang:go-channels:cobra:viper:
 
 [[https://github.com/olmax99/sftppush/workflows/Go/badge.svg][https://github.com/olmax99/sftppush/workflows/Go/badge.svg]]
 
@@ -12,6 +12,7 @@ of mounting an Sftp server's file system directly onto S3 FUSE this solution
 seems to be more fit for production use cases.
 
 * Prerequisites
+- AWS cli ([[https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html][https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html]])
 - Go 1.15.x
 
 * Design
