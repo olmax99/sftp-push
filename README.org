@@ -106,9 +106,6 @@ $ SFTPPUSH_DEFAULTS_S3TARGET=*** SFTPPUSH_DEFAULTS_AWSPROFILE=*** \
 $ SFTPPUSH_DEFAULTS_USERPATH="/home/my_test_dir/" ./bin/sftppush-0.2.0-linux_amd64 -c config.yaml
 #+END_SRC 
 
-* Getting Started
-...
-
 * Testing
 Some tests require the OS file system. You can choose to run the tests inside a
 Docker container.
