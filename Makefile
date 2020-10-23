@@ -29,7 +29,7 @@ build:
 	@echo "building ${BIN_NAME}-${VERSION}-${OSTYPE}"
 	@echo "GOPATH=${GOPATH}"
         # -X write changes to variable at build time: update GitCommit, update BuildDate
-	go build -ldflags "-X github.com/olmax99/sftppush/version.GitCommit=${GIT_COMMIT}${GIT_DIRTY} -X github.com/olmax99/sftppush/version.BuildDate=${BUILD_DATE}" -o bin/${BIN_NAME}-${VERSION}-${OSTYPE}
+	go build -ldflags "-X github.com/olmax99/sftppush/internal/version.GitCommit=${GIT_COMMIT}${GIT_DIRTY} -X github.com/olmax99/sftppush/internal/version.BuildDate=${BUILD_DATE}" -o bin/${BIN_NAME}-${VERSION}-${OSTYPE}
 
 get-deps:
 	go build
