@@ -11,6 +11,7 @@ require (
 	github.com/spf13/viper v1.3.2
 	golang.org/x/tools v0.0.0-20201010145503-6e5c6d77ddcc // indirect
 	golang.org/x/tools/gopls v0.5.1 // indirect
+	gopkg.in/yaml.v2 v2.2.8
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
 )
 
